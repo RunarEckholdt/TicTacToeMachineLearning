@@ -19,7 +19,7 @@ def createModel():
     model.add(keras.layers.Flatten(input_shape=(4,3)))
     model.add(keras.layers.Dense(12,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
-    model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer = "Gradient_Decent",loss="mean_squared_error", metrics=["accuracy"])
     return model
     
     

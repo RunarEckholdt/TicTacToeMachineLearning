@@ -10,14 +10,17 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-loadModel = True
+#todo nytt datasett
+
+
+loadModel = False
 enablePrintBoard = False
 epo = 30 #how many epochs
 genomesToBreed = 10
 matchesPerElimination = 6
 population = 30
 noMutationChance = 0.7
-maxGenerations = 200
+maxGenerations = 20
 generation = 1
 maxTurns = 20
 amountOfRandomGeneratedGenomes = 5
@@ -271,7 +274,8 @@ def readDataAsCsv():
 def createModel():
     model = keras.Sequential()
     model.add(keras.layers.Flatten(input_shape=(4,3)))
-    model.add(keras.layers.Dense(12,activation='relu'))
+    model.add(keras.layers.Dense(12,activation='sigmoid'))
+    model.add(keras.layers.Dense(33,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     return model

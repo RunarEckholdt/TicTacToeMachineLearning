@@ -11,10 +11,10 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-loadModel = True
-csvFileExists = False
-botsPlay = True
-playAsP2 = True
+loadModel = False
+csvFileExists = True
+botsPlay = False
+playAsP2 = False
 playAsP1 = False
 aOPG = 30 #amount of parralell games
 
@@ -108,27 +108,27 @@ playBoard = Board()
 xData = []
 yData = []
 
-# if csvFileExists:
-#     loadedData = pd.read_csv("tictactoe.csv")
-#     tmpyData = list(loadedData['output'].values)
-#     tmpxData = list(loadedData['input'].values)
+if csvFileExists:
+    loadedData = pd.read_csv("tictactoe.csv")
+    tmpyData = list(loadedData['output'].values)
+    tmpxData = list(loadedData['input'].values)
     
-#     for i in range(len(tmpyData)):
-#         yData.append(int(tmpyData[i]))
+    for i in range(len(tmpyData)):
+        yData.append(int(tmpyData[i]))
     
-#     for i in range(len(tmpxData)):
-#         xData.append([])
-#         for j in range(4):
-#             xData[i].append([])
-#             valuesConverted = 0
-#             c = 0
-#             while valuesConverted < 3:
-#                 try:
-#                     xData[i][j].append(int(tmpxData[i][c]))
-#                     valuesConverted += 1
-#                 except:
-#                     pass
-#                 c += 1
+    for i in range(len(tmpxData)):
+        xData.append([])
+        for j in range(10):
+            xData[i].append([])
+            valuesConverted = 0
+            c = 0
+            while valuesConverted < 3:
+                try:
+                    xData[i][j].append(int(tmpxData[i][c]))
+                    valuesConverted += 1
+                except:
+                    pass
+                c += 1
                    
 def readDataAsCsv():
     global yData
@@ -180,8 +180,9 @@ if loadModel:
 def createModel():
     global model
     model = keras.Sequential()
-    model.add(keras.layers.Flatten(input_shape=(4,3)))
-    model.add(keras.layers.Dense(12,activation='relu'))
+    model.add(keras.layers.Flatten(input_shape=(10,3)))
+    model.add(keras.layers.Dense(30,activation='relu'))
+    model.add(keras.layers.Dense(270,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
 
@@ -232,20 +233,12 @@ def translateOD2(number):
     
     return dta[number]
 
-def addDataToP1(y,x,pieceChosen,board):
-    b = []
-    for i in range(len(board)):
-        b.append(board[i].copy())
-    b.append([pieceChosen,1,0])
-    inputDataP1.append(b)
+def addDataToP1(y,x,inputData):
+    inputDataP1.append(inputData.copy())
     outputDataP1.append(translateOD(y,x))
 
-def addDataToP2(y,x,pieceChosen,board):
-    b = []
-    for i in range(len(board)):
-        b.append(board[i].copy())
-    b.append([pieceChosen,2,0])
-    inputDataP2.append(b)
+def addDataToP2(y,x,inputData):
+    inputDataP2.append(inputData.copy())
     outputDataP2.append(translateOD(y,x))
 
 
@@ -255,23 +248,63 @@ def getIndex(value,_list):
             return i
     
 
+def getInputData(pieceChosen):
+    inputData = []
+    for i in range(10):
+        inputData.append([])
+        for j in range(3):
+            inputData[i].append([])
+    board = playBoard.getBoard()
+    for i in range(3):
+        for j in range(3):
+            if board[i][j] == 0:
+               inputData[i][j] = 0
+               inputData[i+3][j] = 0
+               inputData[i+6][j] = 1
+               
+               
+            elif board[i][j] == 1:
+                inputData[i][j] = 1
+                inputData[i+3][j] = 0
+                inputData[i+6][j] = 0
+                
+                
+            elif board[i][j] == 2:
+                inputData[i][j] = 0
+                inputData[i+3][j] = 1
+                inputData[i+6][j] = 0
+    if pieceChosen == True:
+        inputData[9] = [1,0,0]
+    else:
+        inputData[9] = [0,0,0]
+    return inputData
+                
+def copy2DList(listToCopy):
+    copiedList = []
+    for i in range(len(listToCopy)):
+        copiedList.append(listToCopy[i].copy())
+    return copiedList            
+
 def placePiece(player):
     while(True):
-        board = playBoard.getBoard()
-        inputData = []
-        inputData.append([])
-        for i in range(len(board)):
-            inputData[0].append(board[i].copy())
-        inputData[0].append([1,player+1,0])
+        # board = playBoard.getBoard()
+        # inputData = []
+        # inputData.append([])
+        # for i in range(len(board)):
+        #     inputData[0].append(board[i].copy())
+        # inputData[0].append([1,player+1,0])
+        inputData = getInputData(True)
         if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
             prediction = model.predict(inputData)
-            predictionSorted = np.sort(prediction[0])
+            prediction = prediction[0]
+            copyOfPrediction = copy2DList(prediction)
+            predictionSorted = np.sort(copyOfPrediction)
             
             
-            n = len(prediction[0])-1
+            n = len(prediction)-1
             index = 0
             while(n>0):
-                index = getIndex(predictionSorted[n],prediction[0])
+                index = getIndex(predictionSorted[n],prediction)
                 cords = translateOD2(index)
                 y = cords[0]
                 x = cords[1]
@@ -292,28 +325,25 @@ def placePiece(player):
         if playBoard.placePiece(y,x,players[player].getShape()):
             players[player].placePiece()
             if player == 0:
-                addDataToP1(y,x,1,board)
+                addDataToP1(y,x,inputData)
             else:
-                addDataToP2(y,x,1,board)
+                addDataToP2(y,x,inputData)
             break
         else:
             print("Invalid location")
 
 def movePiece(player):
     while(True):
-        board = playBoard.getBoard()
-        inputData = []
-        inputData.append([])
+        inputData1 = getInputData(False)
         if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
-            for i in range(len(board)):
-                inputData[0].append(board[i].copy())
-            inputData[0].append([0,player+1,0])
-            prediction = model.predict(inputData)
-            predictionSorted = np.sort(prediction[0])
-            n = len(prediction[0])-1
+            prediction = model.predict(inputData1)
+            prediction = prediction[0]
+            copyOfPrediction = copy2DList(prediction)
+            predictionSorted = np.sort(copyOfPrediction)
+            n = len(prediction)-1
             index = 0
             while(n>0):
-                index = getIndex(predictionSorted[n],prediction[0])
+                index = getIndex(predictionSorted[n],prediction)
                 cords = translateOD2(index)
                 sY = cords[0]
                 sX = cords[1]
@@ -321,13 +351,15 @@ def movePiece(player):
                     break
                 else:
                     n -= 1
-            inputData[0][3] = [1,player+1,0]
-            prediction = model.predict(inputData)
-            predictionSorted = np.sort(prediction[0])
-            n = len(prediction[0])-1
+            inputData2 = getInputData(True)
+            prediction = model.predict(inputData2)
+            prediction = prediction[0]
+            copyOfPrediction = copy2DList(prediction)
+            predictionSorted = np.sort(copyOfPrediction)
+            n = len(prediction)-1
             index = 0
             while(n>0):
-                index = getIndex(predictionSorted[n],prediction[0])
+                index = getIndex(predictionSorted[n],prediction)
                 cords = translateOD2(index)
                 y = cords[0]
                 x = cords[1]
@@ -340,6 +372,7 @@ def movePiece(player):
             sY = int(input("Y: "))
             sX = int(input("X: "))
             if playBoard.pieceAtPos(sY, sX) == players[player].getShape():
+                inputData2 = getInputData(True)
                 print("Location to place piece")
                 y = int(input("Y: "))
                 x = int(input("X: "))
@@ -347,11 +380,11 @@ def movePiece(player):
             
         if playBoard.movePiece(sY,sX,y,x):
             if player == 0:
-                addDataToP1(sY,sX,0,board)
-                addDataToP1(y,x,1,board)
+                addDataToP1(sY,sX,inputData1)
+                addDataToP1(y,x,inputData2)
             else:
-                addDataToP2(sY, sX, 0,board)
-                addDataToP2(y,x,1,board)
+                addDataToP2(sY, sX, inputData1)
+                addDataToP2(y,x,inputData2)
             break
         else:
             print("Invalid Piece")
@@ -359,10 +392,10 @@ def movePiece(player):
 def checkForWin(player):
     board = playBoard.getBoard()
     shape = players[player].getShape()
-    for y in range(2):
+    for y in range(3):
         if board[y] == [shape,shape,shape]:
             return True
-    for x in range(2):
+    for x in range(3):
         if board[0][x] == board[1][x] and board[2][x] == board[0][x] and board[0][x] == shape:
             return True
     if board[1][1] == shape:
@@ -385,7 +418,7 @@ def doTurn(player):
         return False
 
 def win(player):
-    if player == 0:
+    if player == P1:
         print("P1 won")
         for i in range(len(inputDataP1)):
             print(i)
@@ -423,21 +456,23 @@ def resetGameValues():
     
 
 def writeDataToFile():
+    print(xData)
     if xData[0] != "input":
         xData.insert(0,"input")
         yData.insert(0,"output")
     dataset = pd.Series(xData,yData)
+    print(xData)
     dataset.to_csv("tictactoe.csv")
 
 def main():
     while(True):
         game()
-        #ans = input("play again? (y/n)")
-        #if ans == "n":
-        break
-        #else:
-         #   resetGameValues()
-    #writeDataToFile()
+        ans = input("play again? (y/n)")
+        if ans == "n":
+            break
+        else:
+            resetGameValues()
+    writeDataToFile()
     
     
     
