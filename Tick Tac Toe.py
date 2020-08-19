@@ -11,8 +11,17 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-csvFileExists = True
+loadModel = True
+csvFileExists = False
 botsPlay = True
+playAsP2 = True
+playAsP1 = False
+aOPG = 30 #amount of parralell games
+
+
+
+P1 = 0
+P2 = 1
 
 class Board():
     def __init__(self):
@@ -66,7 +75,8 @@ class Board():
                 self.board[y][x] = 0
             
 class Bot():
-    def __init__(self):
+    def __init__(self,player):
+        self.player = player
         self.inputs = []
         self.outputs = []
         self.fitness = 100
@@ -98,7 +108,33 @@ playBoard = Board()
 xData = []
 yData = []
 
-if csvFileExists:
+# if csvFileExists:
+#     loadedData = pd.read_csv("tictactoe.csv")
+#     tmpyData = list(loadedData['output'].values)
+#     tmpxData = list(loadedData['input'].values)
+    
+#     for i in range(len(tmpyData)):
+#         yData.append(int(tmpyData[i]))
+    
+#     for i in range(len(tmpxData)):
+#         xData.append([])
+#         for j in range(4):
+#             xData[i].append([])
+#             valuesConverted = 0
+#             c = 0
+#             while valuesConverted < 3:
+#                 try:
+#                     xData[i][j].append(int(tmpxData[i][c]))
+#                     valuesConverted += 1
+#                 except:
+#                     pass
+#                 c += 1
+                   
+def readDataAsCsv():
+    global yData
+    global xData
+    yData = []
+    xData = []
     loadedData = pd.read_csv("tictactoe.csv")
     tmpyData = list(loadedData['output'].values)
     tmpxData = list(loadedData['input'].values)
@@ -119,8 +155,6 @@ if csvFileExists:
                 except:
                     pass
                 c += 1
-                   
-    
     
     
     # print(yData)
@@ -136,13 +170,10 @@ inputDataP2 = []
 outputDataP2 = []
 
 
-model = keras.Sequential()
-model.add(keras.layers.Flatten(input_shape=(4,3)))
-model.add(keras.layers.Dense(12,activation='relu'))
-model.add(keras.layers.Dense(9,activation='softmax'))
+if loadModel:
+    model = keras.models.load_model("modelP1.hdf5")
 
-model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-model.fit(xData,yData, epochs=100)
+#model.fit(xData,yData, epochs=30)
 
 
 
@@ -154,6 +185,37 @@ def createModel():
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
 
+
+def createFirstGenP1():
+    global gensP1
+    global botsP1
+    gens = []
+    bots = []
+    for i in range(aOPG):
+        gen = model
+        gen.fit(xData,yData,epochs=30)
+        gens.append(gen)
+        bots.append(Bot(0))
+
+def createFirstGenP2():
+    global gensP2
+    global botsP2
+    gens = []
+    bots = []
+    for i in range(aOPG):
+        gen = model
+        gen.fit(xData,yData,epochs=30)
+        gens.append(gen)
+        bots.append(Bot(1))
+
+def createBoards():
+    global playBoards
+    playBoards = []
+    for i in range(aOPG):
+        playBoards.append(Board())
+
+def mutateGen(gen):
+    print(gen.getWeights())
 
 def translateOD(y,x):
     dta = [
@@ -201,7 +263,7 @@ def placePiece(player):
         for i in range(len(board)):
             inputData[0].append(board[i].copy())
         inputData[0].append([1,player+1,0])
-        if botsPlay:
+        if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
             prediction = model.predict(inputData)
             predictionSorted = np.sort(prediction[0])
             
@@ -242,7 +304,7 @@ def movePiece(player):
         board = playBoard.getBoard()
         inputData = []
         inputData.append([])
-        if botsPlay:
+        if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
             for i in range(len(board)):
                 inputData[0].append(board[i].copy())
             inputData[0].append([0,player+1,0])
@@ -341,12 +403,12 @@ def win(player):
 def game():
     while(True):
         playBoard.printBoard()
-        if doTurn(0):
-            win(0)
+        if doTurn(P1):
+            win(P1)
             break
         playBoard.printBoard()
-        if doTurn(1):
-            win(1)
+        if doTurn(P2):
+            win(P2)
             break  
 def resetGameValues():
     global playBoard
@@ -356,8 +418,8 @@ def resetGameValues():
     outputDataP1.clear()
     inputDataP2.clear()
     outputDataP2.clear()
-    players.append(Player(0))
-    players.append(Player(1))
+    players.append(Player(P1))
+    players.append(Player(P2))
     
 
 def writeDataToFile():
@@ -375,7 +437,7 @@ def main():
         break
         #else:
          #   resetGameValues()
-    writeDataToFile()
+    #writeDataToFile()
     
     
     
