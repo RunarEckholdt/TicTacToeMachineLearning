@@ -11,14 +11,14 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-loadModel = False
+loadModel = True
 csvFileExists = True
-botsPlay = False
-playAsP2 = False
+botsPlay = True
+playAsP2 = True
 playAsP1 = False
 aOPG = 30 #amount of parralell games
-
-
+epo = 2
+debugPrint = False
 
 P1 = 0
 P2 = 1
@@ -144,10 +144,11 @@ def readDataAsCsv():
     
     for i in range(len(tmpxData)):
         xData.append([])
-        for j in range(4):
+        c = 0
+        for j in range(10):
             xData[i].append([])
             valuesConverted = 0
-            c = 0
+
             while valuesConverted < 3:
                 try:
                     xData[i][j].append(int(tmpxData[i][c]))
@@ -173,41 +174,40 @@ outputDataP2 = []
 if loadModel:
     model = keras.models.load_model("modelP1.hdf5")
 
-#model.fit(xData,yData, epochs=30)
+
 
 
 
 def createModel():
-    global model
     model = keras.Sequential()
     model.add(keras.layers.Flatten(input_shape=(10,3)))
     model.add(keras.layers.Dense(30,activation='relu'))
     model.add(keras.layers.Dense(270,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    return model
 
+# def createFirstGenP1():
+#     global gensP1
+#     global botsP1
+#     gens = []
+#     bots = []
+#     for i in range(aOPG):
+#         gen = model
+#         gen.fit(xData,yData,epochs=30)
+#         gens.append(gen)
+#         bots.append(Bot(0))
 
-def createFirstGenP1():
-    global gensP1
-    global botsP1
-    gens = []
-    bots = []
-    for i in range(aOPG):
-        gen = model
-        gen.fit(xData,yData,epochs=30)
-        gens.append(gen)
-        bots.append(Bot(0))
-
-def createFirstGenP2():
-    global gensP2
-    global botsP2
-    gens = []
-    bots = []
-    for i in range(aOPG):
-        gen = model
-        gen.fit(xData,yData,epochs=30)
-        gens.append(gen)
-        bots.append(Bot(1))
+# def createFirstGenP2():
+#     global gensP2
+#     global botsP2
+#     gens = []
+#     bots = []
+#     for i in range(aOPG):
+#         gen = model
+#         gen.fit(xData,yData,epochs=30)
+#         gens.append(gen)
+#         bots.append(Bot(1))
 
 def createBoards():
     global playBoards
@@ -248,7 +248,7 @@ def getIndex(value,_list):
             return i
     
 
-def getInputData(pieceChosen):
+def getInputData(pieceChosen,player):
     inputData = []
     for i in range(10):
         inputData.append([])
@@ -274,9 +274,9 @@ def getInputData(pieceChosen):
                 inputData[i+3][j] = 1
                 inputData[i+6][j] = 0
     if pieceChosen == True:
-        inputData[9] = [1,0,0]
+        inputData[9] = [1,player,0]
     else:
-        inputData[9] = [0,0,0]
+        inputData[9] = [0,player,0]
     return inputData
                 
 def copy2DList(listToCopy):
@@ -293,9 +293,9 @@ def placePiece(player):
         # for i in range(len(board)):
         #     inputData[0].append(board[i].copy())
         # inputData[0].append([1,player+1,0])
-        inputData = getInputData(True)
+        inputData = getInputData(True,player)
         if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
-            prediction = model.predict(inputData)
+            prediction = model.predict([inputData])
             prediction = prediction[0]
             copyOfPrediction = copy2DList(prediction)
             predictionSorted = np.sort(copyOfPrediction)
@@ -334,9 +334,9 @@ def placePiece(player):
 
 def movePiece(player):
     while(True):
-        inputData1 = getInputData(False)
+        inputData1 = getInputData(False,player)
         if botsPlay and player == P1 and playAsP1 == False or botsPlay and player == P2 and playAsP2 == False:
-            prediction = model.predict(inputData1)
+            prediction = model.predict([inputData1])
             prediction = prediction[0]
             copyOfPrediction = copy2DList(prediction)
             predictionSorted = np.sort(copyOfPrediction)
@@ -351,8 +351,8 @@ def movePiece(player):
                     break
                 else:
                     n -= 1
-            inputData2 = getInputData(True)
-            prediction = model.predict(inputData2)
+            inputData2 = getInputData(True,player)
+            prediction = model.predict([inputData2])
             prediction = prediction[0]
             copyOfPrediction = copy2DList(prediction)
             predictionSorted = np.sort(copyOfPrediction)
@@ -372,7 +372,7 @@ def movePiece(player):
             sY = int(input("Y: "))
             sX = int(input("X: "))
             if playBoard.pieceAtPos(sY, sX) == players[player].getShape():
-                inputData2 = getInputData(True)
+                inputData2 = getInputData(True,player)
                 print("Location to place piece")
                 y = int(input("Y: "))
                 x = int(input("X: "))
@@ -421,8 +421,9 @@ def win(player):
     if player == P1:
         print("P1 won")
         for i in range(len(inputDataP1)):
-            print(i)
-            print(inputDataP1[i])
+            if debugPrint:
+                print(i)
+                print(inputDataP1[i])
             xData.append(inputDataP1[i])
             yData.append(outputDataP1[i])
     else:
@@ -434,6 +435,7 @@ def win(player):
     
 
 def game():
+    turnCounter = 1
     while(True):
         playBoard.printBoard()
         if doTurn(P1):
@@ -443,6 +445,9 @@ def game():
         if doTurn(P2):
             win(P2)
             break  
+        turnCounter += 1
+        if turnCounter > 30:
+            break
 def resetGameValues():
     global playBoard
     playBoard = Board()
@@ -451,21 +456,42 @@ def resetGameValues():
     outputDataP1.clear()
     inputDataP2.clear()
     outputDataP2.clear()
-    players.append(Player(P1))
-    players.append(Player(P2))
+    players.append(Player(P1+1))
+    players.append(Player(P2+1))
     
 
 def writeDataToFile():
-    print(xData)
-    if xData[0] != "input":
-        xData.insert(0,"input")
-        yData.insert(0,"output")
-    dataset = pd.Series(xData,yData)
-    print(xData)
+    #print(xData)
+    # if xData[0] != "input":
+    #     xData.insert(0,"input")
+    #     yData.insert(0,"output")
+    indexList = []
+    for i in range(len(xData)):
+        indexList.append(i)
+       
+           
+    dataset = pd.DataFrame(yData,indexList)
+    dataset.columns = ['output']
+    # dataset['input1','input2','input3','input4','input5','input6',
+    #         'input7','input8','input9','input10'] = xData
+    dataset['input'] = xData
+    dataset.head()
+    #dataset.columns = ['output','input']
+    if debugPrint:
+        print(dataset)
+    #print(xData)
     dataset.to_csv("tictactoe.csv")
-
+    dataset.to_csv()
+    
 def main():
+    global model
+    model = createModel()
+    
+    if csvFileExists:
+        readDataAsCsv()
+    
     while(True):
+        model.fit(xData,yData, epochs=epo)
         game()
         ans = input("play again? (y/n)")
         if ans == "n":

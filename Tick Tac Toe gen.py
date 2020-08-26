@@ -17,9 +17,9 @@ loadModel = False
 enablePrintBoard = False
 epo = 30 #how many epochs
 genomesToBreed = 10
-matchesPerElimination = 6
+matchesPerElimination = 10
 population = 30
-noMutationChance = 0.7
+noMutationChance = 0.9
 maxGenerations = 20
 generation = 1
 maxTurns = 20
@@ -161,8 +161,9 @@ class game():
     def botTakeTurn(self,bot,index):
         global playBoards
         if bots[bot][index].piecesLeft() == 0:
-            inputData = copy2DList(playBoards[self.playBoardIndex].getBoard())
-            inputData.append([bot+1,0,0])
+            #inputData = copy2DList(playBoards[self.playBoardIndex].getBoard())
+            inputData = getInputData(False, bot, self.playBoardIndex)
+            #inputData.append([bot+1,0,0])
             prediction = bots[bot][index].predictChoice(inputData)
             predictionSorted = copy2DList(prediction[0])
             predictionSorted = np.sort(predictionSorted)
@@ -170,8 +171,9 @@ class game():
             sY = cords[0]
             sX = cords[1]
             
-        inputData = copy2DList(playBoards[self.playBoardIndex].getBoard())
-        inputData.append([bot+1,1,0])
+        # inputData = copy2DList(playBoards[self.playBoardIndex].getBoard())
+        # inputData.append([bot+1,1,0])
+        inputData = getInputData(True, bot, self.playBoardIndex)
         prediction = bots[bot][index].predictChoice(inputData)
         predictionSorted = copy2DList(prediction[0])
         predictionSorted = np.sort(predictionSorted)
@@ -256,12 +258,13 @@ def readDataAsCsv():
     for i in range(len(tmpyData)):
         yData.append(int(tmpyData[i]))
     
-    for i in range(len(tmpxData)): #fikser liste ettersom den leses inne som en string, istedet for en liste med lister av ints
+    for i in range(len(tmpxData)):
         xData.append([])
-        for j in range(4):
+        c = 0
+        for j in range(10):
             xData[i].append([])
             valuesConverted = 0
-            c = 0
+
             while valuesConverted < 3:
                 try:
                     xData[i][j].append(int(tmpxData[i][c]))
@@ -273,9 +276,9 @@ def readDataAsCsv():
                 
 def createModel():
     model = keras.Sequential()
-    model.add(keras.layers.Flatten(input_shape=(4,3)))
-    model.add(keras.layers.Dense(12,activation='sigmoid'))
-    model.add(keras.layers.Dense(33,activation='relu'))
+    model.add(keras.layers.Flatten(input_shape=(10,3)))
+    model.add(keras.layers.Dense(30,activation='relu'))
+    model.add(keras.layers.Dense(270,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     return model
@@ -327,6 +330,38 @@ def translateOD2(number):
            [2,0],[2,1],[2,2]]
     
     return dta[number]
+
+
+def getInputData(pieceChosen,player,boardIndex):
+    inputData = []
+    for i in range(10):
+        inputData.append([])
+        for j in range(3):
+            inputData[i].append([])
+    board = playBoards[boardIndex].getBoard()
+    for i in range(3):
+        for j in range(3):
+            if board[i][j] == 0:
+               inputData[i][j] = 0
+               inputData[i+3][j] = 0
+               inputData[i+6][j] = 1
+               
+               
+            elif board[i][j] == 1:
+                inputData[i][j] = 1
+                inputData[i+3][j] = 0
+                inputData[i+6][j] = 0
+                
+                
+            elif board[i][j] == 2:
+                inputData[i][j] = 0
+                inputData[i+3][j] = 1
+                inputData[i+6][j] = 0
+    if pieceChosen == True:
+        inputData[9] = [1,player,0]
+    else:
+        inputData[9] = [0,player,0]
+    return inputData
 
 # def addDataToP1(y,x,pieceChosen,board):
 #     b = []
