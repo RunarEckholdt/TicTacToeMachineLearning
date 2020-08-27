@@ -84,6 +84,68 @@ class Board():
         return self.__board
 
 
+
+
+class Game():
+    def __init__(self,b1,b2,board):
+        self.__b1 = b1
+        self.__b2 = b2
+        self.__board = board
+        self.__turnCounter = 0
+        self.__finished = False
+    def __getBoard(self):
+        return self.__board
+    def doTurn(self):
+        self.__b1 = self.__takeTurn(self.__b1)
+        if self.__checkForWin(self.__b1):
+            self.__win(self.__b1)
+        self.__b2 = self.__takeTurn(self.__b2)
+        if self.__checkForWin(self.__b2):
+            self.__win(self.__b2)
+        self.__turnCounter += 1
+    def __takeTurn(self,bot):
+        if bot.piecesLeft() > 0:
+            inputData = self.__getInputData(True,bot,self.__getBoard())
+            
+    
+    
+    
+    def __getInputData(self,pieceChosen,player,pBoard):
+        inputData = []
+        for i in range(10):
+            inputData.append([])
+            for j in range(3):
+                inputData[i].append([])
+        board = pBoard.getBoard()
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == 0:
+                    inputData[i][j] = 0
+                    inputData[i+3][j] = 0
+                    inputData[i+6][j] = 1
+                            
+                            
+                elif board[i][j] == 1:
+                    inputData[i][j] = 1
+                    inputData[i+3][j] = 0
+                    inputData[i+6][j] = 0
+                
+                
+                elif board[i][j] == 2:
+                    inputData[i][j] = 0
+                    inputData[i+3][j] = 1
+                    inputData[i+6][j] = 0
+        if pieceChosen == True:
+            inputData[9] = [1,player,0]
+        else:
+            inputData[9] = [0,player,0]
+        return inputData
+        
+            
+        
+
+
+
 def readDataAsCsv():
     global yData
     global xData
