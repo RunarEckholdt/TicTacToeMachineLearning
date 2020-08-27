@@ -24,9 +24,10 @@ class Bot():
     def getGen(self):
         return self.__model
     def predictChoice(self,inputData):
-        return self.__model.predict([inputData])
-    def getNr(self):
-        return self.__player
+        prediction = self.__model.predict([inputData])
+        return prediction[0]
+    def getShape(self):
+        return self.__P
     def remPiece(self):
         self.__piecesLeft -= 1
     def resetBot(self):
@@ -103,45 +104,98 @@ class Game():
         if self.__checkForWin(self.__b2):
             self.__win(self.__b2)
         self.__turnCounter += 1
+    def __terminateGame(self):
+        self.__finished = True
     def __takeTurn(self,bot):
-        if bot.piecesLeft() > 0:
-            inputData = self.__getInputData(True,bot,self.__getBoard())
+        #if bot must choose a piece
+        if bot.piecesLeft() == 0:
+            inputData1 = self.__getInputData(False,bot.getShape())
+            prediction = bot.predictChoice(inputData1)
+            predictionSorted = np.sort(copy2DList(prediction)) #kopierer prediction og sorterer listen
+            bot, y1, x1 = self.__getValidPrediction(bot, prediction, predictionSorted, False)
+        inputData2 = self.__getInputData(True,bot.getShape())
+        prediction = bot.predictChoice(inputData2)
+        predictionSorted = np.sort(copy2DList(prediction))
+        bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
+        try:
+            if bot.piecesLeft() == 0:
+                self.getBoard().movePiece(y1,x1,y2,x2)
+            else:
+                bot.remPiece()
+                self.getBoard().placePiece(y2,x2,bot.getShape())
+        except:
+            print("Bot has failed to move, game is terminated")
+            bot.remFitness(100)
+            self.__terminateGame()
+        return bot
             
+    def __getValidPrediction(self,bot,prediction,predictionSorted,pieceChosen):
+        n = len(prediction[0])-1
+        predIndex = 0
+        shape = bot.getShape()
+        board = self.__getBoard()
+        while(n>0):
+            predIndex = getIndex(predictionSorted[n],prediction[0])
+            y,x = self.__translateOTC(predIndex)
+            
+            #hvis den velger sin egen brikke og ingen brikke er valgt
+            if board.pieceAtPos(y,x) == shape 1 and pieceChosen == False:
+                break
+            #hvis den har valgt en brukke og plassen er tom
+            elif board.pieceAtPos(y,x) == 0 and pieceChosen == True:
+                break
+            #den faila en predict
+            else:
+                n -= 1
+                bot.remFitness(20)
+        return bot, y, x
     
     
-    
-    def __getInputData(self,pieceChosen,player,pBoard):
+    def __getInputData(self,pieceChosen,shape):
         inputData = []
         for i in range(10):
             inputData.append([])
             for j in range(3):
                 inputData[i].append([])
-        board = pBoard.getBoard()
+        board = self.__getBoard()
+        #go throu every location on the board, put 1 in every "pieces" assigned board
+        #the first 3 arrays is allocated to P1, next 3 to P2, next 3 to empty board
         for i in range(3):
             for j in range(3):
                 if board[i][j] == 0:
                     inputData[i][j] = 0
                     inputData[i+3][j] = 0
                     inputData[i+6][j] = 1
-                            
-                            
                 elif board[i][j] == 1:
                     inputData[i][j] = 1
                     inputData[i+3][j] = 0
                     inputData[i+6][j] = 0
-                
-                
                 elif board[i][j] == 2:
                     inputData[i][j] = 0
                     inputData[i+3][j] = 1
                     inputData[i+6][j] = 0
+        #the 10: first bit is high if piece is chosen, second bit is high if P2
         if pieceChosen == True:
-            inputData[9] = [1,player,0]
+            inputData[9] = [1,shape-1,0] #getshape-1 give 0 for P1 and 1 for P2 
         else:
-            inputData[9] = [0,player,0]
+            inputData[9] = [0,shape-1,0]
         return inputData
         
-            
+    #translate coordinates to output
+    def __translateCTO(y,x):
+        dta = [
+            [0,1,2],
+            [3,4,5],
+            [6,7,8]]
+    
+        return dta[y][x]
+   
+    #translate output from neural network to coordinates
+    def __translateOTC(number):
+        dta = [[0,0],[0,1],[0,2],
+               [1,0],[1,1],[1,2],
+               [2,0],[2,1],[2,2]]
+        return dta[number][0],dta[number][1]
         
 
 
@@ -172,7 +226,19 @@ def readDataAsCsv():
                 except:
                     pass
                 c += 1
-                
+  
+def copy2DList(listToCopy):
+    copiedList = []
+    for i in range(len(listToCopy)):
+        copiedList.append(listToCopy[i].copy())
+    return copiedList                
+
+#gir index for verdien gitt i listen
+def getIndex(value,_list):
+    for i in range(len(_list)):
+        if _list[i] == value:
+            return i  
+
                 
 def createModel():
     model = keras.Sequential()

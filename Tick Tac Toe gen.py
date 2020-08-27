@@ -315,7 +315,7 @@ def createBoards():
     return playBoards
 
 
-
+#translate coordinates to output
 def translateOD(y,x):
     dta = [
         [0,1,2],
@@ -324,7 +324,8 @@ def translateOD(y,x):
     
     return dta[y][x]
    
-def translateOD2(number):
+#translate output from neural network to coordinates
+def translateOTC(number):
     dta = [[0,0],[0,1],[0,2],
            [1,0],[1,1],[1,2],
            [2,0],[2,1],[2,2]]
