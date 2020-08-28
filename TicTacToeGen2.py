@@ -6,6 +6,7 @@ import numpy as np
 
 P1 = 0
 P2 = 1
+doPrintBoard = False
 
 class Bot():
     def __init__(self,P,model):
@@ -98,12 +99,14 @@ class Game():
         return self.__board
     def doTurn(self):
         self.__b1 = self.__takeTurn(self.__b1)
-        if self.__checkForWin(self.__b1):
-            self.__win(self.__b1)
+        if self.__checkForWin(self.__b1.getShape()):
+            self.__win(P1)
         self.__b2 = self.__takeTurn(self.__b2)
-        if self.__checkForWin(self.__b2):
-            self.__win(self.__b2)
+        if self.__checkForWin(self.__b2.getShape()):
+            self.__win(P2)
         self.__turnCounter += 1
+        self.__b1.remFitness(1)
+        self.__b2.remFitness(1)
     def __terminateGame(self):
         self.__finished = True
     def __takeTurn(self,bot):
@@ -139,7 +142,7 @@ class Game():
             y,x = self.__translateOTC(predIndex)
             
             #hvis den velger sin egen brikke og ingen brikke er valgt
-            if board.pieceAtPos(y,x) == shape 1 and pieceChosen == False:
+            if board.pieceAtPos(y,x) == shape and pieceChosen == False:
                 break
             #hvis den har valgt en brukke og plassen er tom
             elif board.pieceAtPos(y,x) == 0 and pieceChosen == True:
@@ -196,7 +199,28 @@ class Game():
                [1,0],[1,1],[1,2],
                [2,0],[2,1],[2,2]]
         return dta[number][0],dta[number][1]
-        
+    def __win(self,winner):
+        if winner == P1:
+            self.__b1.addFitness(50)
+            self.__b2.remFitness(30)
+        else:
+            self.__b2.addFitness(50)
+            self.__b1.remFitness(30)
+        self.__terminateGame()
+    def __checkForWin(self,shape):
+        board = self.__getBoard().getBoard()
+        for y in range(2):
+            if board[y] == [shape,shape,shape]: #vannrett skjekk
+                return True
+        for x in range(2):#loddrett skjekk
+            if board[0][x] == board[1][x] and board[2][x] == board[0][x] and board[0][x] == shape:
+                return True
+        if board[1][1] == shape: #skrå skjekk
+            if board[0][0] == shape and board[2][2] == shape:
+                return True
+            if board[0][2] == shape and board[2][0] == shape:
+                return True
+        return False
 
 
 
@@ -215,7 +239,7 @@ def readDataAsCsv():
     for i in range(len(tmpxData)):
         xData.append([])
         c = 0
-        for j in range(10):
+        for j in range(10): #find numbers and write them to a list, 3 numbers go into one list
             xData[i].append([])
             valuesConverted = 0
 
@@ -226,7 +250,8 @@ def readDataAsCsv():
                 except:
                     pass
                 c += 1
-  
+
+#copy 2D list values to a new 2D list
 def copy2DList(listToCopy):
     copiedList = []
     for i in range(len(listToCopy)):
