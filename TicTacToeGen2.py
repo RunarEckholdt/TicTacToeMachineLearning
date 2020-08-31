@@ -7,6 +7,9 @@ import numpy as np
 P1 = 0
 P2 = 1
 doPrintBoard = False
+loadModel = False
+
+
 
 class Bot():
     def __init__(self,P,model):
@@ -221,6 +224,42 @@ class Game():
             if board[0][2] == shape and board[2][0] == shape:
                 return True
         return False
+
+
+
+class generation():
+    def __init__(self,genNr,oldBots = None):
+        self.__oldBots = oldBots
+        self.__genNr = genNr
+        if self.__genNr == 1 and loadModel:
+            P1s, P2s = self.__loadFirstGenBots()
+        elif self.__genNr == 1:
+            P1s, P2s = self.__createFirstGenBots()
+        else:
+            P1s, P2s = self.__createNewGenBots()
+        self.__createMatches(P1s,P2s)
+        
+    def __loadFirstGenBots(self):
+        P1s = []
+        P2s = []
+    def __createFirstGenBots(self):
+        P1s = []
+        P2s = []
+            
+    def __createNewGenBots(self):
+        P1s = []
+        P2s = []
+    def __createMatches(P1s,P2s):
+        pass
+
+
+
+
+
+
+
+
+
 
 
 
