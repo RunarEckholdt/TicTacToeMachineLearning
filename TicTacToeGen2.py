@@ -4,11 +4,18 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
+#settings
 P1 = 0
 P2 = 1
 doPrintBoard = False
 loadModel = False
-
+maxGenerations = 20
+mutatedBots = 20
+breededBots = 10
+keptBots = 10
+noMutationChance = 0.9
+population = mutatedBots + breededBots + keptBots
+epo = 40
 
 
 class Bot():
@@ -23,8 +30,8 @@ class Bot():
         return self.__fitness
     def piecesLeft(self):
         return self.__piecesLeft
-    # def mutateGen(self):
-    #     self.__model = mutateLayers(self.gen)
+    def mutateModel(self):
+        self.__model = self.__mutateLayers(self.gen)
     def getGen(self):
         return self.__model
     def predictChoice(self,inputData):
@@ -39,6 +46,26 @@ class Bot():
         self.__piecesLeft = 3
     def resetPieces(self):
         self.__piecesLeft = 3
+    def __mutateLayers(gen):
+        for i in range(1,len(gen.layers)):
+            newGen = createModel()
+            weights = gen.layers[i].get_weights()
+            for k in range(len(weights[0])):
+                #print(model.layers[i].get_weights()[j][k])
+            
+                for l in range(len(gen.layers[i].get_weights()[0][k])):
+                    r = random.uniform(0,1)
+                    if r > noMutationChance:
+                        randomMutation = random.uniform(-0.1,0.1)
+                        weights[0][k][l] += randomMutation
+            for j in range(len(weights[1])):
+                r = random.uniform(0,1)
+                if r > noMutationChance:
+                    randomMutation = random.uniform(-0.1,0.1)
+                    weights[1][j] += randomMutation
+                                
+                newGen.layers[i].set_weights(weights)
+        return newGen
         
 
 class Board():
@@ -242,14 +269,74 @@ class generation():
     def __loadFirstGenBots(self):
         P1s = []
         P2s = []
+        for i in range(0,population):
+            p1Model = keras.loadModel("modelP1.hdf5")
+            p2Model = keras.loadModel("modelP2.hdf5")
+            P1s.append(Bot(P1,p1Model))
+            P2s.append(Bot(P2,p2Model))
+            if i != 0:
+                P1s[i].mutateModel()
+                P2s[i].mutateModel()
+        return P1s,P2s
+            
+            
+                    
     def __createFirstGenBots(self):
         P1s = []
         P2s = []
+        xData,yData = readDataAsCsv()
+        for i in range(population):
+            modelP1 = createModel()
+            modelP1.fit(xData,yData,epochs=epo)
+            modelP2 = createModel()
+            modelP2.fit(xData,yData,epochs=epo)
+            P1s.append(Bot(P1,modelP1))
+            P2s.append(Bot(P2,modelP2))
+        return P1s,P2s
             
     def __createNewGenBots(self):
         P1s = []
         P2s = []
-    def __createMatches(P1s,P2s):
+        #Loading inn bots to keep from last generation
+        for i in range(keptBots):
+            P1s.append(self.__oldBots[P1][i])
+            P1s[i].resetBot()
+            P2s.append(self.__oldBots[P2][i])
+            P2s[i].resetBot()
+        for i in range(breededBots):
+            P1s.extend(self.__manageBreeding(P1))
+            P2s.extend(self.__manageBreeding(P2))
+        
+    def __manageBreeding(self,p):
+        bBots = []
+        for i in range(1,breededBots):
+            bBots.append(self.__breed(self.__oldBots[p][0],self.__oldBots[p][i],p))
+        bBots.append(self.__breed(self.__olfBots[p][1],self.__oldBots[p][2],p))
+        return bBots
+    #take two models and randomly merges them into a new model
+    def __breed(self,model1, model2,p):
+        targetModel = createModel()
+        for i in range(1,len(targetModel.layers)):
+            #weights
+            for j in range(len(targetModel.layers[i].get_weights())):
+                for k in range(len(targetModel.layers[i].get_weights()[0][j])):
+                    r = random.uniform(0,1)
+                    if r > 0.5:
+                        targetModel.layers[i].get_weights()[0][j][k] = model1.layers[i].get_weights()[0][j][k]
+                    else:
+                        targetModel.layers[i].get_weights()[0][j][k] = model2.layers[i].get_weights()[0][j][k]
+            #bias    
+            for j in range(len(targetModel.layers[i].get_weights()[1])):
+                r = random.uniform(0,1)
+                if r > 0.5:
+                    targetModel.layers[i].get_weights()[1][j] = model1.layers[i].get_weights()[1][j]
+                else:
+                    targetModel.layers[i].get_weights()[1][j] = model2.layers[i].get_weights()[1][j]
+        return Bot(p,targetModel)
+        
+        
+        
+    def __createMatches(self,P1s,P2s):
         pass
 
 
@@ -264,8 +351,6 @@ class generation():
 
 
 def readDataAsCsv():
-    global yData
-    global xData
     yData = []
     xData = []
     loadedData = pd.read_csv("tictactoe.csv")
@@ -289,6 +374,7 @@ def readDataAsCsv():
                 except:
                     pass
                 c += 1
+    return xData,yData
 
 #copy 2D list values to a new 2D list
 def copy2DList(listToCopy):
