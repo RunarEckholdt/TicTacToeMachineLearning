@@ -121,10 +121,10 @@ class Board():
 
 
 class Game():
-    def __init__(self,b1,b2,board):
+    def __init__(self,b1,b2):
         self.__b1 = b1
         self.__b2 = b2
-        self.__board = board
+        self.__board = Board()
         self.__turnCounter = 0
         self.__finished = False
     def __getBoard(self):
@@ -266,7 +266,7 @@ class generation():
             P1s, P2s = self.__createFirstGenBots()
         else:
             P1s, P2s = self.__createNewGenBots()
-        self.__createMatches(P1s,P2s)
+        self.__matches = self.__createMatches(P1s,P2s)
         
     def __loadFirstGenBots(self):
         P1s = []
@@ -317,6 +317,7 @@ class generation():
             p2.mutateModel()
             P1s.append(p1)
             P2s.append(p2)
+        return P1s, P2s
         
             
         
@@ -349,9 +350,18 @@ class generation():
         return Bot(p,targetModel)
         
         
-        
+    
     def __createMatches(self,P1s,P2s):
-        pass
+        matches = [[],[]]
+        for i in range(population):
+            model1 = P1s[0].getModel()
+            model2 = P2s[0].getModel()
+            p1 = Bot(P1, model1)
+            p2 = Bot(P2, model2)
+            matches[P1].append(Game(P1s[i],p2))
+            matches[P2].append(Game(P2s[i],p1))
+        return matches
+            
 
 
 
