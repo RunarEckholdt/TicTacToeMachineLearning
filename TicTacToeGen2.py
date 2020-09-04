@@ -66,6 +66,8 @@ class Bot():
                                 
                 newGen.layers[i].set_weights(weights)
         return newGen
+    def getModel(self):
+        return self.__model
         
 
 class Board():
@@ -306,6 +308,18 @@ class generation():
         for i in range(breededBots):
             P1s.extend(self.__manageBreeding(P1))
             P2s.extend(self.__manageBreeding(P2))
+        for i in range(mutatedBots):
+            model1 = P1s[0].getModel()
+            model2 = P2s[0].getModel()
+            p1 = Bot(P1, model1)
+            p2 = Bot(P2, model2)
+            p1.mutateModel()
+            p2.mutateModel()
+            P1s.append(p1)
+            P2s.append(p2)
+        
+            
+        
         
     def __manageBreeding(self,p):
         bBots = []
