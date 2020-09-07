@@ -9,13 +9,13 @@ P1 = 0
 P2 = 1
 doPrintBoard = False
 loadModel = False
-maxGenerations = 20
+#maxGenerations = 20
 mutatedBots = 20
 breededBots = 10
 keptBots = 10
 noMutationChance = 0.9
 population = mutatedBots + breededBots + keptBots
-epo = 40
+epo = 1
 
 
 
@@ -23,6 +23,8 @@ class Bot():
     def __init__(self,P,model):
         self.__P = P+1
         self.__model = model
+        self.__piecesLeft = 3
+        self.__fitness = 100
     def addFitness(self,fitnessToAdd):
         self.__fitness += fitnessToAdd
     def remFitness(self,fitnessToRem):
@@ -32,7 +34,7 @@ class Bot():
     def piecesLeft(self):
         return self.__piecesLeft
     def mutateModel(self):
-        self.__model = self.__mutateLayers(self.gen)
+        self.__model = self.__mutateLayers(self.__model)
     def getGen(self):
         return self.__model
     def predictChoice(self,inputData):
@@ -47,7 +49,7 @@ class Bot():
         self.__piecesLeft = 3
     def resetPieces(self):
         self.__piecesLeft = 3
-    def __mutateLayers(gen):
+    def __mutateLayers(self,gen):
         for i in range(1,len(gen.layers)):
             newGen = createModel()
             weights = gen.layers[i].get_weights()
@@ -172,12 +174,12 @@ class Game():
         return bot
             
     def __getValidPrediction(self,bot,prediction,predictionSorted,pieceChosen):
-        n = len(prediction[0])-1
+        n = len(prediction)-1
         predIndex = 0
         shape = bot.getShape()
         board = self.__getBoard()
         while(n>0):
-            predIndex = getIndex(predictionSorted[n],prediction[0])
+            predIndex = getIndex(predictionSorted[n],prediction)
             y,x = self.__translateOTC(predIndex)
             
             #hvis den velger sin egen brikke og ingen brikke er valgt
@@ -199,7 +201,7 @@ class Game():
             inputData.append([])
             for j in range(3):
                 inputData[i].append([])
-        board = self.__getBoard()
+        board = self.__getBoard().getBoard()
         #go throu every location on the board, put 1 in every "pieces" assigned board
         #the first 3 arrays is allocated to P1, next 3 to P2, next 3 to empty board
         for i in range(3):
@@ -224,7 +226,7 @@ class Game():
         return inputData
         
     #translate coordinates to output
-    def __translateCTO(y,x):
+    def __translateCTO(self,y,x):
         dta = [
             [0,1,2],
             [3,4,5],
@@ -233,11 +235,12 @@ class Game():
         return dta[y][x]
    
     #translate output from neural network to coordinates
-    def __translateOTC(number):
+    def __translateOTC(self,number):
         dta = [[0,0],[0,1],[0,2],
                [1,0],[1,1],[1,2],
                [2,0],[2,1],[2,2]]
-        return dta[number][0],dta[number][1]
+        return (dta[number][0],dta[number][1])
+    
     def __win(self,winner):
         if winner == P1:
             self.__b1.addFitness(50)
@@ -263,7 +266,7 @@ class Game():
 
 
 
-class generation():
+class Generation():
     def __init__(self,genNr,oldBots = None):
         self.__oldBots = oldBots
         self.__genNr = genNr
@@ -332,8 +335,8 @@ class generation():
     def __manageBreeding(self,p):
         bBots = []
         for i in range(1,breededBots):
-            bBots.append(self.__breed(self.__oldBots[p][0],self.__oldBots[p][i],p))
-        bBots.append(self.__breed(self.__olfBots[p][1],self.__oldBots[p][2],p))
+            bBots.append(self.__breed(self.__oldBots[p][0].getModel(),self.__oldBots[p][i].getModel(),p))
+        bBots.append(self.__breed(self.__oldBots[p][1].getModel(),self.__oldBots[p][2].getModel(),p))
         return bBots
     #take two models and randomly merges them into a new model
     def __breed(self,model1, model2,p):
@@ -383,13 +386,13 @@ class generation():
                     done = False
         bots = [[],[]]
         for i in range(population):
-            bots[P1].append(self.__matches[P1].getP1())
-            bots[P2].append(self.__matches[P2].getP2())
+            bots[P1].append(self.__matches[P1][i].getP1())
+            bots[P2].append(self.__matches[P2][i].getP2())
         bots[P1] = self.__sortBots(bots[P1])
         bots[P2] = self.__sortBots(bots[P2])
         return bots
         
-    def __sortBots(bots):
+    def __sortBots(self,bots):
         for i in range(len(bots)): 
             # Find the minimum element in remaining  
             # unsorted array 
@@ -403,8 +406,28 @@ class generation():
         return bots
                 
                 
-                
 
+class GenEvolution():
+    def __init__(self,maxGenerations):
+        self.__maxGenerations = maxGenerations
+        self.__runGens()
+    def __runGens(self):
+        generation = Generation(1)
+        oldBots = generation.runGeneration()
+        for i in range(2,self.__maxGenerations+1):
+            generation = Generation(i,oldBots)
+            oldBots = generation.runGeneration()
+        print("Genetic Evolution complete...")
+        modelP1 = oldBots[P1][0].getModel()
+        modelP2 = oldBots[P2][0].getModel()
+        modelP1.save("modelP1.hdf5")
+        print("Saving superior model for P1...")
+        print("Saving superior model for P2...")
+        modelP2.save("modelP2.hdf5")
+        
+    
+             
+        
 
 
 
@@ -464,3 +487,23 @@ def createModel():
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     return model
+
+
+
+
+
+
+evol = GenEvolution(20)
+
+
+
+
+
+
+
+
+
+
+
+
+
