@@ -18,6 +18,7 @@ population = mutatedBots + breededBots + keptBots
 epo = 40
 
 
+
 class Bot():
     def __init__(self,P,model):
         self.__P = P+1
@@ -129,6 +130,12 @@ class Game():
         self.__finished = False
     def __getBoard(self):
         return self.__board
+    def getP1(self):
+        return self.__b1
+    def getP2(self):
+        return self.__b2
+    def isFinished(self):
+        return self.__finished
     def doTurn(self):
         self.__b1 = self.__takeTurn(self.__b1)
         if self.__checkForWin(self.__b1.getShape()):
@@ -359,9 +366,44 @@ class generation():
             p1 = Bot(P1, model1)
             p2 = Bot(P2, model2)
             matches[P1].append(Game(P1s[i],p2))
-            matches[P2].append(Game(P2s[i],p1))
+            matches[P2].append(Game(p1,P2s[i]))
         return matches
-            
+    def runGeneration(self):
+        print("Running generation", self.__genNr)
+        done = False
+        while not done:
+            done = True
+            for match in self.__matches[P1]:
+                match.doTurn()
+                if not match.isFinished():
+                    done = False
+            for match in self.__matches[P2]:
+                match.doTurn()
+                if not match.isFinished():
+                    done = False
+        bots = [[],[]]
+        for i in range(population):
+            bots[P1].append(self.__matches[P1].getP1())
+            bots[P2].append(self.__matches[P2].getP2())
+        bots[P1] = self.__sortBots(bots[P1])
+        bots[P2] = self.__sortBots(bots[P2])
+        return bots
+        
+    def __sortBots(bots):
+        for i in range(len(bots)): 
+            # Find the minimum element in remaining  
+            # unsorted array 
+            max_idx = i 
+            for j in range(i+1, len(bots)): 
+                if bots[max_idx].getFitness() < bots[j].getFitness(): 
+                    max_idx = j
+                    # Swap the found minimum element with
+                    # the first element
+                    bots[i], bots[max_idx] = bots[max_idx], bots[i] 
+        return bots
+                
+                
+                
 
 
 
