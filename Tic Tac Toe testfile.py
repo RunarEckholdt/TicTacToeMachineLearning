@@ -10,7 +10,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
-
+import threading
 
 
 
@@ -91,18 +91,25 @@ import numpy as np
 
 #print(model.layers[1].get_weights()[0][0])
 
+def p(text):
+    for i in range(500):
+            print(text)
 
-a = [1,2,3,4]
-b = [5,6,7,8]
-a.extend(b)
+class pThread(threading.Thread):
+    def __init__(self,text):
+        threading.Thread.__init__(self)
+        self.text=text
+    def run(self):
+        p(self.text)
+    
 
 
+    
+th1 = pThread("Kake")
+th2 = pThread("Banan")
 
-
-
-
-
-
+th1.start()
+th2.start()
 
 
 

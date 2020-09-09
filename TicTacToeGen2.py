@@ -3,19 +3,26 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
+import threading
+
+from concurrent.futures import Future
 
 #settings
 P1 = 0
 P2 = 1
 doPrintBoard = False
-loadModel = False
+loadModel = True
 #maxGenerations = 20
 mutatedBots = 20
 breededBots = 10
 keptBots = 10
 noMutationChance = 0.9
 population = mutatedBots + breededBots + keptBots
-epo = 1
+epo = 30
+maxTurns = 20
+debug = True
+
+
 
 
 
@@ -50,8 +57,8 @@ class Bot():
     def resetPieces(self):
         self.__piecesLeft = 3
     def __mutateLayers(self,gen):
+        newGen = keras.models.clone_model(gen)
         for i in range(1,len(gen.layers)):
-            newGen = createModel()
             weights = gen.layers[i].get_weights()
             for k in range(len(weights[0])):
                 #print(model.layers[i].get_weights()[j][k])
@@ -148,6 +155,10 @@ class Game():
         self.__turnCounter += 1
         self.__b1.remFitness(1)
         self.__b2.remFitness(1)
+        if self.__turnCounter == maxTurns:
+            #print("Game reached turn 30 and is beeing terminated")
+            self.__terminateGame()
+            
     def __terminateGame(self):
         self.__finished = True
     def __takeTurn(self,bot):
@@ -163,10 +174,10 @@ class Game():
         bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
         try:
             if bot.piecesLeft() == 0:
-                self.getBoard().movePiece(y1,x1,y2,x2)
+                self.__getBoard().movePiece(y1,x1,y2,x2)
             else:
                 bot.remPiece()
-                self.getBoard().placePiece(y2,x2,bot.getShape())
+                self.__getBoard().placePiece(y2,x2,bot.getShape())
         except:
             print("Bot has failed to move, game is terminated")
             bot.remFitness(100)
@@ -266,32 +277,39 @@ class Game():
 
 
 
+
+
+
 class Generation():
     def __init__(self,genNr,oldBots = None):
         self.__oldBots = oldBots
         self.__genNr = genNr
+        self.__bots = [[],[]]
         if self.__genNr == 1 and loadModel:
-            P1s, P2s = self.__loadFirstGenBots()
+            self.__loadFirstGenBots()
         elif self.__genNr == 1:
-            P1s, P2s = self.__createFirstGenBots()
+            self.__createFirstGenBots()
         else:
-            P1s, P2s = self.__createNewGenBots()
-        self.__matches = self.__createMatches(P1s,P2s)
+            self.__createNewGenBots()
+        self.__matches = self.__createMatches()
+        
+    
         
     def __loadFirstGenBots(self):
         P1s = []
         P2s = []
         for i in range(0,population):
-            p1Model = keras.loadModel("modelP1.hdf5")
-            p2Model = keras.loadModel("modelP2.hdf5")
+            p1Model = keras.models.load_model("modelP1.hdf5")
+            p2Model = keras.models.load_model("modelP2.hdf5")
             P1s.append(Bot(P1,p1Model))
             P2s.append(Bot(P2,p2Model))
             if i != 0:
                 P1s[i].mutateModel()
                 P2s[i].mutateModel()
-        return P1s,P2s
+        self.__bots[P1] = P1s
+        self.__bots[P2] = P2s
             
-            
+    
                     
     def __createFirstGenBots(self):
         P1s = []
@@ -304,33 +322,45 @@ class Generation():
             modelP2.fit(xData,yData,epochs=epo)
             P1s.append(Bot(P1,modelP1))
             P2s.append(Bot(P2,modelP2))
-        return P1s,P2s
+        self.__bots[P1] = P1s
+        self.__bots[P2] = P2s
             
     def __createNewGenBots(self):
-        P1s = []
-        P2s = []
-        #Loading inn bots to keep from last generation
+        th1 = threading.Thread(target=self.__createNewGenBotsTh,args=(P1,))
+        th2 = threading.Thread(target=self.__createNewGenBotsTh,args=(P2,))
+        th1.start()
+        th2.start()
+        th1.join()
+        th2.join()
+        
+        
+        #thP1 = thread.start_new_thread(self.__createNewGenBotsTh,(P1))
+        #thP2 = thread.start_new_thread(self.__createNewGenBotsTh,(P2))
+        #thP1.join()
+        #thP2.join()
+        
+    def __createNewGenBotsTh(self,p):
+        self.__bots[p].extend(self.__cloneLastGenBots(p))
+        self.__bots[p].extend(self.__manageBreeding(p))
+        self.__bots[p].extend(self.__createMutants(p))
+        
+        
+    def __cloneLastGenBots(self,p):
+        clonedBots = []
         for i in range(keptBots):
-            P1s.append(self.__oldBots[P1][i])
-            P1s[i].resetBot()
-            P2s.append(self.__oldBots[P2][i])
-            P2s[i].resetBot()
-        for i in range(breededBots):
-            P1s.extend(self.__manageBreeding(P1))
-            P2s.extend(self.__manageBreeding(P2))
+            model = self.__oldBots[P1][i].getModel()
+            model = keras.models.clone_model(model)
+            clonedBots.append(Bot(p,model))
+        return clonedBots
+        
+    def __createMutants(self,p):
+        mutants = []
         for i in range(mutatedBots):
-            model1 = P1s[0].getModel()
-            model2 = P2s[0].getModel()
-            p1 = Bot(P1, model1)
-            p2 = Bot(P2, model2)
-            p1.mutateModel()
-            p2.mutateModel()
-            P1s.append(p1)
-            P2s.append(p2)
-        return P1s, P2s
-        
-            
-        
+            model = keras.models.clone_model(self.__bots[p][0].getModel()) #clone the best version of the last gen bots
+            bot = Bot(p,model)
+            bot.mutateModel()
+            mutants.append(bot)
+        return mutants
         
     def __manageBreeding(self,p):
         bBots = []
@@ -361,7 +391,9 @@ class Generation():
         
         
     
-    def __createMatches(self,P1s,P2s):
+    def __createMatches(self):
+        P1s = self.__bots[P1]
+        P2s = self.__bots[P2]
         matches = [[],[]]
         for i in range(population):
             model1 = P1s[0].getModel()
@@ -377,12 +409,12 @@ class Generation():
         while not done:
             done = True
             for match in self.__matches[P1]:
-                match.doTurn()
                 if not match.isFinished():
+                    match.doTurn()
                     done = False
             for match in self.__matches[P2]:
-                match.doTurn()
                 if not match.isFinished():
+                    match.doTurn()
                     done = False
         bots = [[],[]]
         for i in range(population):
@@ -390,6 +422,12 @@ class Generation():
             bots[P2].append(self.__matches[P2][i].getP2())
         bots[P1] = self.__sortBots(bots[P1])
         bots[P2] = self.__sortBots(bots[P2])
+        print("best P1 fitness score = ", bots[P1][0].getFitness())
+        print("best P2 fitness score = ", bots[P2][0].getFitness())
+        #print("Worst P1 fitness score = ", bots[P1][-1].getFitness())
+        #print("Worst P2 fitness score = ", bots[P2][-1].getFitness())
+        bots[P1][0].getModel().save("tmpModelP1.hdf5")
+        bots[P2][0].getModel().save("tmpModelP2.hdf5")
         return bots
         
     def __sortBots(self,bots):
@@ -414,9 +452,11 @@ class GenEvolution():
     def __runGens(self):
         generation = Generation(1)
         oldBots = generation.runGeneration()
+        del generation
         for i in range(2,self.__maxGenerations+1):
             generation = Generation(i,oldBots)
             oldBots = generation.runGeneration()
+            del generation
         print("Genetic Evolution complete...")
         modelP1 = oldBots[P1][0].getModel()
         modelP2 = oldBots[P2][0].getModel()
@@ -493,7 +533,7 @@ def createModel():
 
 
 
-evol = GenEvolution(20)
+evol = GenEvolution(200)
 
 
 
