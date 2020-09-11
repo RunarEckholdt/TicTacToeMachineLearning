@@ -177,9 +177,13 @@ class Game():
         try:
             if bot.piecesLeft() == 0:
                 self.__getBoard().movePiece(y1,x1,y2,x2)
+                if self.__checkIfBOrR(y2, x2, bot.getShape(),release=True):
+                    bot.remFitness(5)
             else:
                 bot.remPiece()
                 self.__getBoard().placePiece(y2,x2,bot.getShape())
+            if self.__checkIfBOrR(y2, x2, bot.getShape(),False):
+                    bot.addFitness(5)
         except:
             print("Bot has failed to move, game is terminated")
             bot.remFitness(100)
@@ -237,6 +241,59 @@ class Game():
         else:
             inputData[9] = [0,shape-1,0]
         return inputData
+    
+    #check if block or realease
+    def __checkIfBOrR(self,y,x,shape,release):
+        if release:
+            shape = 0
+        if shape == 1:
+            riv = 2
+        else:
+            riv = 1
+        board = self.__getBoard().getBoard()
+        row = board[y][board!=shape]
+        colum = board[:,x]
+        colum = colum[colum!=shape]
+        inDigSky = False
+        inDigGrav = False
+        
+        if x == y:
+            inDigGrav = True
+        if y == 0 and x == 2 or y == x or y == 3 and x == 0:
+            inDigSky = True
+        
+        digSky = []
+        digGrav = []
+        
+        if inDigGrav:
+            for i in range(3):
+                digGrav.append(board[i][i])
+            digGrav = digGrav[digGrav != shape]
+        if digSky:
+            for y,x in ((2,0),(1,1),(0,2)):
+                digSky.append(board[y][x])
+            digSky = digSky[digSky!=shape]
+        
+        
+        #horizontal check
+        if row[0]==riv and any(i == row[0] for i in row) and len(row)==2:
+            return True
+        #vertical check
+        elif colum[0]==riv and any(i == colum[0] for i in colum) and len(colum)==2:
+            return True
+        #diagonal check from bottom left
+        elif inDigSky and digSky[0]==riv and any(i == digSky[0] for i in digSky) and len(digSky) ==2: 
+            return True
+        #diagonal check from upper left
+        elif inDigGrav and digGrav[0]==riv and any(i == digGrav[0] for i in digGrav) and len(digGrav) ==2:
+            return True
+        else:
+            return False
+        
+        
+        
+        
+        
         
     #translate coordinates to output
     def __translateCTO(self,y,x):
@@ -256,11 +313,9 @@ class Game():
     
     def __win(self,winner):
         if winner == P1:
-            self.__b1.addFitness(50)
-            self.__b2.remFitness(30)
+            self.__b1.addFitness(40)
         else:
-            self.__b2.addFitness(50)
-            self.__b1.remFitness(30)
+            self.__b2.addFitness(40)
         self.__terminateGame()
     def __checkForWin(self,shape):
         board = self.__getBoard().getBoard()
@@ -406,7 +461,7 @@ class Generation():
                     targetModel.layers[i].get_weights()[1][j] = model2.layers[i].get_weights()[1][j]
         return Bot(p,targetModel)
         
-        
+    
     
     def __createMatches(self):
         P1s = self.__bots[P1]

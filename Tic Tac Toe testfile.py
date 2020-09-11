@@ -91,25 +91,50 @@ import threading
 
 #print(model.layers[1].get_weights()[0][0])
 
-def p(text):
-    for i in range(500):
-            print(text)
+# def p(text):
+#     for i in range(500):
+#             print(text)
 
-class pThread(threading.Thread):
-    def __init__(self,text):
-        threading.Thread.__init__(self)
-        self.text=text
-    def run(self):
-        p(self.text)
+# class pThread(threading.Thread):
+#     def __init__(self,text):
+#         threading.Thread.__init__(self)
+#         self.text=text
+#     def run(self):
+#         p(self.text)
     
 
 
     
-th1 = pThread("Kake")
-th2 = pThread("Banan")
+# th1 = pThread("Kake")
+# th2 = pThread("Banan")
 
-th1.start()
-th2.start()
+# th1.start()
+# th2.start()
+
+
+board = np.array([[1,2,1],
+                  [2,0,0],
+                  [2,0,0]])
+x = 0
+colums = board[:,x]
+print(colums)
+shape = 1
+riv = 2
+sepColum = colums[colums!=shape]
+
+if sepColum[0]==riv and all(x == sepColum[0] for x in sepColum) and len(sepColum) == 2:
+    print("Jau")
+
+
+
+
+
+
+
+
+
+
+
 
 
 
