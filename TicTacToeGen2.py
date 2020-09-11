@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import threading
-
+import time
 from concurrent.futures import Future
 
 #settings
@@ -22,6 +22,8 @@ epo = 30
 maxTurns = 20
 debug = True
 
+mutexCreateModel = threading.Lock()
+mutexCloneModel = threading.Lock()
 
 
 
@@ -326,12 +328,23 @@ class Generation():
         self.__bots[P2] = P2s
             
     def __createNewGenBots(self):
+        start = time.time()
         th1 = threading.Thread(target=self.__createNewGenBotsTh,args=(P1,))
         th2 = threading.Thread(target=self.__createNewGenBotsTh,args=(P2,))
         th1.start()
         th2.start()
         th1.join()
         th2.join()
+        if debug:
+            print("Threads is joined")
+        end = time.time()
+        diff = end - start
+        if debug:
+            print("createNewGenBots took: ",diff)
+            print("Lenght of P1s: ", len(self.__bots[P1]))
+            print("Lenght of P2s: ", len(self.__bots[P2]))
+        
+        
         
         
         #thP1 = thread.start_new_thread(self.__createNewGenBotsTh,(P1))
@@ -341,8 +354,11 @@ class Generation():
         
     def __createNewGenBotsTh(self,p):
         self.__bots[p].extend(self.__cloneLastGenBots(p))
+        print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__manageBreeding(p))
+        print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__createMutants(p))
+        print(p, len(self.__bots[p]))
         
         
     def __cloneLastGenBots(self,p):
@@ -356,7 +372,7 @@ class Generation():
     def __createMutants(self,p):
         mutants = []
         for i in range(mutatedBots):
-            model = keras.models.clone_model(self.__bots[p][0].getModel()) #clone the best version of the last gen bots
+            model = threadProtectedKerasClone(self.__bots[p][0].getModel())#clone the best version of the last gen bots
             bot = Bot(p,model)
             bot.mutateModel()
             mutants.append(bot)
@@ -365,6 +381,7 @@ class Generation():
     def __manageBreeding(self,p):
         bBots = []
         for i in range(1,breededBots):
+            print(p,i)
             bBots.append(self.__breed(self.__oldBots[p][0].getModel(),self.__oldBots[p][i].getModel(),p))
         bBots.append(self.__breed(self.__oldBots[p][1].getModel(),self.__oldBots[p][2].getModel(),p))
         return bBots
@@ -394,6 +411,9 @@ class Generation():
     def __createMatches(self):
         P1s = self.__bots[P1]
         P2s = self.__bots[P2]
+        if debug:
+            print("Lenght of P1s: ",len(P1s))
+            print("Lenght of P2s: ",len(P2s))
         matches = [[],[]]
         for i in range(population):
             model1 = P1s[0].getModel()
@@ -403,19 +423,27 @@ class Generation():
             matches[P1].append(Game(P1s[i],p2))
             matches[P2].append(Game(p1,P2s[i]))
         return matches
-    def runGeneration(self):
-        print("Running generation", self.__genNr)
+    
+    
+    def __runMatchesTh(self,p):
         done = False
         while not done:
             done = True
-            for match in self.__matches[P1]:
+            for match in self.__matches[p]:
                 if not match.isFinished():
                     match.doTurn()
                     done = False
-            for match in self.__matches[P2]:
-                if not match.isFinished():
-                    match.doTurn()
-                    done = False
+    
+    
+    def runGeneration(self):
+        print("Running generation", self.__genNr)
+        done = False
+        thP1 = threading.Thread(target=self.__runMatchesTh,args=(P1,))
+        thP2 = threading.Thread(target=self.__runMatchesTh,args=(P2,))
+        thP1.start()
+        thP2.start()
+        thP1.join()
+        thP2.join()
         bots = [[],[]]
         for i in range(population):
             bots[P1].append(self.__matches[P1][i].getP1())
@@ -518,14 +546,24 @@ def getIndex(value,_list):
         if _list[i] == value:
             return i  
 
-                
+#protect the clone_model function from beeing used by both threads at the same time
+def threadProtectedKerasClone(modelToClone):
+    mutexCloneModel.acquire()
+    clone = keras.models.clone_model(modelToClone)
+    mutexCloneModel.release()
+    return clone
+    
+    
+             
 def createModel():
+    mutexCreateModel.acquire()
     model = keras.Sequential()
     model.add(keras.layers.Flatten(input_shape=(10,3)))
     model.add(keras.layers.Dense(30,activation='relu'))
     model.add(keras.layers.Dense(270,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
     model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    mutexCreateModel.release()
     return model
 
 
