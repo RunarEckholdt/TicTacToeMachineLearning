@@ -112,13 +112,19 @@ import threading
 # th2.start()
 
 
-board = np.array([[1,2,1],
-                  [2,0,0],
-                  [2,0,0]])
-x = 0
+board = [[1,2,1],
+         [2,0,0],
+         [2,0,0]]
+
+x = 1
+y = 0
+shape = 2
+board = np.array(board)
+row = board[y][y!=shape]
+
 colums = board[:,x]
 print(colums)
-shape = 1
+
 riv = 2
 sepColum = colums[colums!=shape]
 

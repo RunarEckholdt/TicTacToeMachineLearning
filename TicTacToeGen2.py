@@ -11,19 +11,20 @@ from concurrent.futures import Future
 P1 = 0
 P2 = 1
 doPrintBoard = False
-loadModel = True
+loadModel = False
 #maxGenerations = 20
 mutatedBots = 20
 breededBots = 10
 keptBots = 10
 noMutationChance = 0.9
 population = mutatedBots + breededBots + keptBots
-epo = 30
+epo = 5
 maxTurns = 20
-debug = True
-
+debug = False
+maxGens = 10
 mutexCreateModel = threading.Lock()
 mutexCloneModel = threading.Lock()
+
 
 
 
@@ -177,7 +178,7 @@ class Game():
         try:
             if bot.piecesLeft() == 0:
                 self.__getBoard().movePiece(y1,x1,y2,x2)
-                if self.__checkIfBOrR(y2, x2, bot.getShape(),release=True):
+                if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
                     bot.remFitness(5)
             else:
                 bot.remPiece()
@@ -250,9 +251,10 @@ class Game():
             riv = 2
         else:
             riv = 1
-        board = self.__getBoard().getBoard()
-        row = board[y][board!=shape]
-        colum = board[:,x]
+        board = self.__getBoard().getBoard().copy()
+        board = np.array(board)
+        row = board[y][y!=shape]
+        colum = board[:, x]
         colum = colum[colum!=shape]
         inDigSky = False
         inDigGrav = False
@@ -394,6 +396,7 @@ class Generation():
             print("Threads is joined")
         end = time.time()
         diff = end - start
+        print("createNewGenBots took %.2f sek" %diff)
         if debug:
             print("createNewGenBots took: ",diff)
             print("Lenght of P1s: ", len(self.__bots[P1]))
@@ -409,11 +412,11 @@ class Generation():
         
     def __createNewGenBotsTh(self,p):
         self.__bots[p].extend(self.__cloneLastGenBots(p))
-        print(p, len(self.__bots[p]))
+        #print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__manageBreeding(p))
-        print(p, len(self.__bots[p]))
+        #print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__createMutants(p))
-        print(p, len(self.__bots[p]))
+        #print(p, len(self.__bots[p]))
         
         
     def __cloneLastGenBots(self,p):
@@ -492,13 +495,17 @@ class Generation():
     
     def runGeneration(self):
         print("Running generation", self.__genNr)
-        done = False
+        start = time.time()
         thP1 = threading.Thread(target=self.__runMatchesTh,args=(P1,))
         thP2 = threading.Thread(target=self.__runMatchesTh,args=(P2,))
         thP1.start()
         thP2.start()
         thP1.join()
         thP2.join()
+        end = time.time()
+        print("Matches took %.2f sek" %(end-start))
+        
+        
         bots = [[],[]]
         for i in range(population):
             bots[P1].append(self.__matches[P1][i].getP1())
@@ -626,7 +633,7 @@ def createModel():
 
 
 
-evol = GenEvolution(200)
+evol = GenEvolution(maxGens)
 
 
 
