@@ -172,7 +172,7 @@ outputDataP2 = []
 
 
 if loadModel:
-    model = keras.models.load_model("modelP1.hdf5")
+    model = keras.models.load_model("modelP1.hdf5",compile=False)
 
 
 

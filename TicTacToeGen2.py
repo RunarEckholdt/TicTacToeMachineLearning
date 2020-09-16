@@ -11,19 +11,17 @@ from concurrent.futures import Future
 P1 = 0
 P2 = 1
 doPrintBoard = False
-loadModel = False
-#maxGenerations = 20
+loadModel = True
 mutatedBots = 20
 breededBots = 10
 keptBots = 10
 noMutationChance = 0.9
 population = mutatedBots + breededBots + keptBots
-epo = 5
+epo = 40
 maxTurns = 20
 debug = False
-maxGens = 10
-mutexCreateModel = threading.Lock()
-mutexCloneModel = threading.Lock()
+maxGens = 20
+kerasMutex = threading.Lock()
 
 
 
@@ -60,7 +58,7 @@ class Bot():
     def resetPieces(self):
         self.__piecesLeft = 3
     def __mutateLayers(self,gen):
-        newGen = keras.models.clone_model(gen)
+        newGen = threadProtectedKerasClone(gen)
         for i in range(1,len(gen.layers)):
             weights = gen.layers[i].get_weights()
             for k in range(len(weights[0])):
@@ -175,20 +173,20 @@ class Game():
         prediction = bot.predictChoice(inputData2)
         predictionSorted = np.sort(copy2DList(prediction))
         bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
-        try:
-            if bot.piecesLeft() == 0:
-                self.__getBoard().movePiece(y1,x1,y2,x2)
-                if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
-                    bot.remFitness(5)
-            else:
-                bot.remPiece()
-                self.__getBoard().placePiece(y2,x2,bot.getShape())
-            if self.__checkIfBOrR(y2, x2, bot.getShape(),False):
-                    bot.addFitness(5)
-        except:
-            print("Bot has failed to move, game is terminated")
-            bot.remFitness(100)
-            self.__terminateGame()
+        #try:
+        if bot.piecesLeft() == 0:
+            self.__getBoard().movePiece(y1,x1,y2,x2)
+            if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
+                bot.remFitness(5)
+        else:
+            bot.remPiece()
+            self.__getBoard().placePiece(y2,x2,bot.getShape())
+            if self.__checkIfBOrR(y2, x2, bot.getShape(),release=False):
+                bot.addFitness(5)
+        # except:
+        #     print("Bot has failed to move, game is terminated")
+        #     bot.remFitness(100)
+        #     self.__terminateGame()
         return bot
             
     def __getValidPrediction(self,bot,prediction,predictionSorted,pieceChosen):
@@ -253,7 +251,8 @@ class Game():
             riv = 1
         board = self.__getBoard().getBoard().copy()
         board = np.array(board)
-        row = board[y][y!=shape]
+        row = board[y]
+        row = row[row!=shape]
         colum = board[:, x]
         colum = colum[colum!=shape]
         inDigSky = False
@@ -264,33 +263,41 @@ class Game():
         if y == 0 and x == 2 or y == x or y == 3 and x == 0:
             inDigSky = True
         
-        digSky = []
-        digGrav = []
+        digSky = np.zeros(3)
+        digGrav = np.zeros(3)
+        
+        
         
         if inDigGrav:
             for i in range(3):
-                digGrav.append(board[i][i])
+                digGrav[i] = board[i][i]
             digGrav = digGrav[digGrav != shape]
-        if digSky:
-            for y,x in ((2,0),(1,1),(0,2)):
-                digSky.append(board[y][x])
-            digSky = digSky[digSky!=shape]
-        
+        if inDigSky: #lager en array på diagonalen
+            for i,(y,x) in enumerate(((2,0),(1,1),(0,2))):
+                digSky[i] = board[y][x]
+            digSky = digSky[digSky != shape]
         
         #horizontal check
-        if row[0]==riv and any(i == row[0] for i in row) and len(row)==2:
-            return True
+        if len(row) == 2:
+            if row[0]==riv and any(i == row[0] for i in row):
+                return True
+
         #vertical check
-        elif colum[0]==riv and any(i == colum[0] for i in colum) and len(colum)==2:
-            return True
+        if len(colum) == 2:
+            if colum[0]==riv and any(i == colum[0] for i in colum):
+                return True
+
         #diagonal check from bottom left
-        elif inDigSky and digSky[0]==riv and any(i == digSky[0] for i in digSky) and len(digSky) ==2: 
-            return True
+        if inDigSky and len(digSky) == 2:
+            if digSky[0]==riv and any(i == digSky[0] for i in digSky): 
+                return True
+
         #diagonal check from upper left
-        elif inDigGrav and digGrav[0]==riv and any(i == digGrav[0] for i in digGrav) and len(digGrav) ==2:
-            return True
-        else:
-            return False
+        if inDigGrav and len(digGrav) == 2:
+            if digGrav[0]==riv and any(i == digGrav[0] for i in digGrav):
+                return True
+
+        return False
         
         
         
@@ -358,8 +365,8 @@ class Generation():
         P1s = []
         P2s = []
         for i in range(0,population):
-            p1Model = keras.models.load_model("modelP1.hdf5")
-            p2Model = keras.models.load_model("modelP2.hdf5")
+            p1Model = keras.models.load_model("modelP1.hdf5",compile=False)
+            p2Model = keras.models.load_model("modelP2.hdf5",compile=False)
             P1s.append(Bot(P1,p1Model))
             P2s.append(Bot(P2,p2Model))
             if i != 0:
@@ -423,7 +430,7 @@ class Generation():
         clonedBots = []
         for i in range(keptBots):
             model = self.__oldBots[P1][i].getModel()
-            model = keras.models.clone_model(model)
+            model = threadProtectedKerasClone(model)
             clonedBots.append(Bot(p,model))
         return clonedBots
         
@@ -439,7 +446,6 @@ class Generation():
     def __manageBreeding(self,p):
         bBots = []
         for i in range(1,breededBots):
-            print(p,i)
             bBots.append(self.__breed(self.__oldBots[p][0].getModel(),self.__oldBots[p][i].getModel(),p))
         bBots.append(self.__breed(self.__oldBots[p][1].getModel(),self.__oldBots[p][2].getModel(),p))
         return bBots
@@ -610,22 +616,22 @@ def getIndex(value,_list):
 
 #protect the clone_model function from beeing used by both threads at the same time
 def threadProtectedKerasClone(modelToClone):
-    mutexCloneModel.acquire()
+    kerasMutex.acquire()
     clone = keras.models.clone_model(modelToClone)
-    mutexCloneModel.release()
+    kerasMutex.release()
     return clone
     
     
              
 def createModel():
-    mutexCreateModel.acquire()
+    kerasMutex.acquire()
     model = keras.Sequential()
     model.add(keras.layers.Flatten(input_shape=(10,3)))
     model.add(keras.layers.Dense(30,activation='relu'))
     model.add(keras.layers.Dense(270,activation='relu'))
     model.add(keras.layers.Dense(9,activation='softmax'))
-    model.compile(optimizer = "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    mutexCreateModel.release()
+    model.compile(optimizer= "adam",loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    kerasMutex.release()
     return model
 
 
