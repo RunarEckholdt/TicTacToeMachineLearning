@@ -22,6 +22,7 @@ maxTurns = 20
 debug = False
 maxGens = 20
 kerasMutex = threading.Lock()
+matchesPerGeneration = 3
 
 
 
@@ -351,6 +352,11 @@ class Generation():
         self.__oldBots = oldBots
         self.__genNr = genNr
         self.__bots = [[],[]]
+        self.__bestModelsP1 = []
+        self.__bestModelsP2 = []
+        for i in range(matchesPerGeneration):
+            self.__bestModelsP1 = self.__oldBots[P1][i].getModel()
+            self.__bestModelsP2 = self.__oldBots[P1][i].getModel()
         if self.__genNr == 1 and loadModel:
             self.__loadFirstGenBots()
         elif self.__genNr == 1:
@@ -411,19 +417,10 @@ class Generation():
         
         
         
-        
-        #thP1 = thread.start_new_thread(self.__createNewGenBotsTh,(P1))
-        #thP2 = thread.start_new_thread(self.__createNewGenBotsTh,(P2))
-        #thP1.join()
-        #thP2.join()
-        
     def __createNewGenBotsTh(self,p):
         self.__bots[p].extend(self.__cloneLastGenBots(p))
-        #print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__manageBreeding(p))
-        #print(p, len(self.__bots[p]))
         self.__bots[p].extend(self.__createMutants(p))
-        #print(p, len(self.__bots[p]))
         
         
     def __cloneLastGenBots(self,p):
@@ -472,59 +469,66 @@ class Generation():
         
     
     
-    def __createMatches(self):
+    def __createMatches(self,matchNr):
         P1s = self.__bots[P1]
         P2s = self.__bots[P2]
-        if debug:
-            print("Lenght of P1s: ",len(P1s))
-            print("Lenght of P2s: ",len(P2s))
         matches = [[],[]]
-        for i in range(population):
-            model1 = P1s[0].getModel()
-            model2 = P2s[0].getModel()
+        for j in range(population):
+            model1 = P1s[matchNr].getModel()
+            model2 = P2s[matchNr].getModel()
             p1 = Bot(P1, model1)
             p2 = Bot(P2, model2)
-            matches[P1].append(Game(P1s[i],p2))
-            matches[P2].append(Game(p1,P2s[i]))
+            matches[P1].append(Game(P1s[j],p2))
+            matches[P2].append(Game(p1,P2s[j]))
         return matches
     
-    
-    def __runMatchesTh(self,p):
+    def __runMatches(self):
+        th1P1 = threading.Thread(target=self.__runMatchesTh,args=(0,20,P1,))
+        th2P1 = threading.Thread(target=self.__runMatchesTh,args=(21,40,P1))
+        th1P2 = threading.Thread(target=self.__runMatchesTh,args=(0,20,P1,))
+        th2P2 = threading.Thread(target=self.__runMatchesTh,args=(21,40,P2))
+        
+        th1P1.start()
+        th2P1.start()
+        th1P2.start()
+        th2P2.start()
+        
+        th1P1.join()
+        th2P1.join()
+        th1P2.join()
+        th2P2.join()
+            
+    def __runMatchesTh(self,start,stop,p):
         done = False
         while not done:
             done = True
-            for match in self.__matches[p]:
-                if not match.isFinished():
-                    match.doTurn()
+            for i in range(start,stop+1):
+                if not self.__matches[p][i].isFinished():
+                    self.__matches[p][i].doTurn()
                     done = False
     
-    
-    def runGeneration(self):
-        print("Running generation", self.__genNr)
-        start = time.time()
-        thP1 = threading.Thread(target=self.__runMatchesTh,args=(P1,))
-        thP2 = threading.Thread(target=self.__runMatchesTh,args=(P2,))
-        thP1.start()
-        thP2.start()
-        thP1.join()
-        thP2.join()
-        end = time.time()
-        print("Matches took %.2f sek" %(end-start))
-        
-        
+    def __fetchBots(self):
         bots = [[],[]]
         for i in range(population):
             bots[P1].append(self.__matches[P1][i].getP1())
             bots[P2].append(self.__matches[P2][i].getP2())
-        bots[P1] = self.__sortBots(bots[P1])
-        bots[P2] = self.__sortBots(bots[P2])
-        print("best P1 fitness score = ", bots[P1][0].getFitness())
-        print("best P2 fitness score = ", bots[P2][0].getFitness())
-        #print("Worst P1 fitness score = ", bots[P1][-1].getFitness())
-        #print("Worst P2 fitness score = ", bots[P2][-1].getFitness())
-        bots[P1][0].getModel().save("tmpModelP1.hdf5")
-        bots[P2][0].getModel().save("tmpModelP2.hdf5")
-        return bots
+        self.__bots = bots
+        
+    
+    def runGeneration(self):
+        print("Running generation", self.__genNr)
+        start = time.time()
+        for i in range(matchesPerGeneration):
+            self.__createMatches(i)
+            self.__runMatches()
+            self.__fetchBots()
+        self.bots[P1] = self.__sortBots(self.__bots[P1])
+        self.bots[P2] = self.__sortBots(self.__bots[P2])
+        print("best P1 fitness score = ", self.__bots[P1][0].getFitness())
+        print("best P2 fitness score = ", self.__bots[P2][0].getFitness())
+        self.__bots[P1][0].getModel().save("tmpModelP1.hdf5")
+        self.__bots[P2][0].getModel().save("tmpModelP2.hdf5")
+        
         
     def __sortBots(self,bots):
         for i in range(len(bots)): 
