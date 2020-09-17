@@ -6,6 +6,7 @@ import numpy as np
 import threading
 import time
 from concurrent.futures import Future
+import ipdb
 
 #settings
 P1 = 0
@@ -176,7 +177,11 @@ class Game():
         bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
         #try:
         if bot.piecesLeft() == 0:
-            self.__getBoard().movePiece(y1,x1,y2,x2)
+            try:
+                self.__getBoard().movePiece(y1,x1,y2,x2)
+            except:
+                ipdb.set_trace()
+                print("oops")
             if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
                 bot.remFitness(5)
         else:
@@ -354,18 +359,45 @@ class Generation():
         self.__bots = [[],[]]
         self.__bestModelsP1 = []
         self.__bestModelsP2 = []
-        for i in range(matchesPerGeneration):
-            self.__bestModelsP1 = self.__oldBots[P1][i].getModel()
-            self.__bestModelsP2 = self.__oldBots[P1][i].getModel()
+        
         if self.__genNr == 1 and loadModel:
             self.__loadFirstGenBots()
         elif self.__genNr == 1:
             self.__createFirstGenBots()
         else:
             self.__createNewGenBots()
-        self.__matches = self.__createMatches()
+        self.__fetchBestModels()
         
-    
+        
+    def runGeneration(self):
+        print("Running generation", self.__genNr)
+        start = time.time()
+        for i in range(matchesPerGeneration):
+            self.__createMatches(i)
+            self.__runMatches()
+            self.__fetchBots()
+        end = time.time()
+        diff = end-start
+        print("Matches took %.3f s"%diff)
+        self.bots[P1] = self.__sortBots(self.__bots[P1])
+        self.bots[P2] = self.__sortBots(self.__bots[P2])
+        print("best P1 fitness score = ", self.__bots[P1][0].getFitness())
+        print("best P2 fitness score = ", self.__bots[P2][0].getFitness())
+        self.__bots[P1][0].getModel().save("tmpModelP1.hdf5")
+        self.__bots[P2][0].getModel().save("tmpModelP2.hdf5")
+        
+    def __fetchBestModels(self):
+        if self.__genNr == 1:
+            for i in range(matchesPerGeneration):
+                self.__bestModelsP1.append(self.__bots[P1][i].getModel())
+                self.__bestModelsP2.append(self.__bots[P2][i].getModel())
+        else:    
+            for i in range(matchesPerGeneration):
+                self.__bestModelsP1.append(self.__oldBots[P1][i].getModel())
+                self.__bestModelsP2.append(self.__oldBots[P1][i].getModel())
+        for i in range(matchesPerGeneration):
+            self.__bestModelsP1[i]._make_predict_function()
+            self.__bestModelsP2[i]._make_predict_function()
         
     def __loadFirstGenBots(self):
         P1s = []
@@ -480,13 +512,13 @@ class Generation():
             p2 = Bot(P2, model2)
             matches[P1].append(Game(P1s[j],p2))
             matches[P2].append(Game(p1,P2s[j]))
-        return matches
+        self.__matches = matches
     
     def __runMatches(self):
-        th1P1 = threading.Thread(target=self.__runMatchesTh,args=(0,20,P1,))
-        th2P1 = threading.Thread(target=self.__runMatchesTh,args=(21,40,P1))
-        th1P2 = threading.Thread(target=self.__runMatchesTh,args=(0,20,P1,))
-        th2P2 = threading.Thread(target=self.__runMatchesTh,args=(21,40,P2))
+        th1P1 = threading.Thread(target=self.__runMatchesTh,args=(0,19,P1,))
+        th2P1 = threading.Thread(target=self.__runMatchesTh,args=(20,39,P1))
+        th1P2 = threading.Thread(target=self.__runMatchesTh,args=(0,19,P1,))
+        th2P2 = threading.Thread(target=self.__runMatchesTh,args=(20,39,P2))
         
         th1P1.start()
         th2P1.start()
@@ -515,19 +547,7 @@ class Generation():
         self.__bots = bots
         
     
-    def runGeneration(self):
-        print("Running generation", self.__genNr)
-        start = time.time()
-        for i in range(matchesPerGeneration):
-            self.__createMatches(i)
-            self.__runMatches()
-            self.__fetchBots()
-        self.bots[P1] = self.__sortBots(self.__bots[P1])
-        self.bots[P2] = self.__sortBots(self.__bots[P2])
-        print("best P1 fitness score = ", self.__bots[P1][0].getFitness())
-        print("best P2 fitness score = ", self.__bots[P2][0].getFitness())
-        self.__bots[P1][0].getModel().save("tmpModelP1.hdf5")
-        self.__bots[P2][0].getModel().save("tmpModelP2.hdf5")
+    
         
         
     def __sortBots(self,bots):
@@ -548,8 +568,7 @@ class Generation():
 class GenEvolution():
     def __init__(self,maxGenerations):
         self.__maxGenerations = maxGenerations
-        self.__runGens()
-    def __runGens(self):
+    def runGens(self):
         generation = Generation(1)
         oldBots = generation.runGeneration()
         del generation
@@ -644,6 +663,7 @@ def createModel():
 
 
 evol = GenEvolution(maxGens)
+evol.runGens()
 
 
 
