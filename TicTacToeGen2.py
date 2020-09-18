@@ -1,11 +1,9 @@
 import random
 import pandas as pd
-import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import threading
 import time
-from concurrent.futures import Future
 import ipdb
 
 #settings
@@ -25,6 +23,11 @@ maxGens = 20
 kerasMutex = threading.Lock()
 matchesPerGeneration = 3
 
+#rewards
+winReward = 30
+blockReward = 10
+blockReleasePunishment = 15
+
 
 
 
@@ -34,7 +37,7 @@ class Bot():
         self.__P = P+1
         self.__model = model
         self.__piecesLeft = 3
-        self.__fitness = 100
+        self.__fitness = 90
     def addFitness(self,fitnessToAdd):
         self.__fitness += fitnessToAdd
     def remFitness(self,fitnessToRem):
@@ -54,9 +57,6 @@ class Bot():
         return self.__P
     def remPiece(self):
         self.__piecesLeft -= 1
-    def resetBot(self):
-        self.__fitness = 100
-        self.__piecesLeft = 3
     def resetPieces(self):
         self.__piecesLeft = 3
     def __mutateLayers(self,gen):
@@ -165,8 +165,14 @@ class Game():
     def __terminateGame(self):
         self.__finished = True
     def __takeTurn(self,bot):
+        
         #if bot must choose a piece
         if bot.piecesLeft() == 0:
+            mustChoosePiece = True
+        else:
+            mustChoosePiece = False
+        
+        if mustChoosePiece:
             inputData1 = self.__getInputData(False,bot.getShape())
             prediction = bot.predictChoice(inputData1)
             predictionSorted = np.sort(copy2DList(prediction)) #kopierer prediction og sorterer listen
@@ -176,19 +182,15 @@ class Game():
         predictionSorted = np.sort(copy2DList(prediction))
         bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
         #try:
-        if bot.piecesLeft() == 0:
-            try:
-                self.__getBoard().movePiece(y1,x1,y2,x2)
-            except:
-                ipdb.set_trace()
-                print("oops")
+        if mustChoosePiece:
+            self.__getBoard().movePiece(y1,x1,y2,x2)
             if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
-                bot.remFitness(5)
+                bot.remFitness(blockReleasePunishment)
         else:
             bot.remPiece()
             self.__getBoard().placePiece(y2,x2,bot.getShape())
             if self.__checkIfBOrR(y2, x2, bot.getShape(),release=False):
-                bot.addFitness(5)
+                bot.addFitness(blockReward)
         # except:
         #     print("Bot has failed to move, game is terminated")
         #     bot.remFitness(100)
@@ -204,16 +206,18 @@ class Game():
             predIndex = getIndex(predictionSorted[n],prediction)
             y,x = self.__translateOTC(predIndex)
             
-            #hvis den velger sin egen brikke og ingen brikke er valgt
+            #is piece is not chosen and it picks it's own piece
             if board.pieceAtPos(y,x) == shape and pieceChosen == False:
                 break
-            #hvis den har valgt en brukke og plassen er tom
+            #if piece is chosen and position is empty
             elif board.pieceAtPos(y,x) == 0 and pieceChosen == True:
                 break
             #den faila en predict
             else:
                 n -= 1
                 bot.remFitness(20)
+        if y == None:
+            print("Y was not set")
         return bot, y, x
     
     
@@ -328,9 +332,9 @@ class Game():
     
     def __win(self,winner):
         if winner == P1:
-            self.__b1.addFitness(40)
+            self.__b1.addFitness(winReward)
         else:
-            self.__b2.addFitness(40)
+            self.__b2.addFitness(winReward)
         self.__terminateGame()
     def __checkForWin(self,shape):
         board = self.__getBoard().getBoard()
@@ -379,12 +383,14 @@ class Generation():
         end = time.time()
         diff = end-start
         print("Matches took %.3f s"%diff)
-        self.bots[P1] = self.__sortBots(self.__bots[P1])
-        self.bots[P2] = self.__sortBots(self.__bots[P2])
-        print("best P1 fitness score = ", self.__bots[P1][0].getFitness())
-        print("best P2 fitness score = ", self.__bots[P2][0].getFitness())
+        self.__bots[P1] = self.__sortBots(self.__bots[P1])
+        self.__bots[P2] = self.__sortBots(self.__bots[P2])
+        print("Best P1 fitness score = ", self.__bots[P1][0].getFitness())
+        print("Best P2 fitness score = ", self.__bots[P2][0].getFitness())
+        print("Worst P2 fitness score = ", self.__bots[P2][-1].getFitness())
         self.__bots[P1][0].getModel().save("tmpModelP1.hdf5")
         self.__bots[P2][0].getModel().save("tmpModelP2.hdf5")
+        return self.__bots
         
     def __fetchBestModels(self):
         if self.__genNr == 1:
@@ -529,7 +535,7 @@ class Generation():
         th2P1.join()
         th1P2.join()
         th2P2.join()
-            
+    
     def __runMatchesTh(self,start,stop,p):
         done = False
         while not done:
@@ -544,6 +550,8 @@ class Generation():
         for i in range(population):
             bots[P1].append(self.__matches[P1][i].getP1())
             bots[P2].append(self.__matches[P2][i].getP2())
+            bots[P1][i].resetPieces()
+            bots[P2][i].resetPieces()
         self.__bots = bots
         
     
