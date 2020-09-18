@@ -37,7 +37,7 @@ class Bot():
         self.__P = P+1
         self.__model = model
         self.__piecesLeft = 3
-        self.__fitness = 90
+        self.__fitness = 100
     def addFitness(self,fitnessToAdd):
         self.__fitness += fitnessToAdd
     def remFitness(self,fitnessToRem):
@@ -374,6 +374,7 @@ class Generation():
         
         
     def runGeneration(self):
+        print("---------------------------------")
         print("Running generation", self.__genNr)
         start = time.time()
         for i in range(matchesPerGeneration):
@@ -447,9 +448,9 @@ class Generation():
             print("Threads is joined")
         end = time.time()
         diff = end - start
-        print("createNewGenBots took %.2f sek" %diff)
+        print("CreateNewGenBots took %.2f sek" %diff)
         if debug:
-            print("createNewGenBots took: ",diff)
+            print("CreateNewGenBots took: ",diff)
             print("Lenght of P1s: ", len(self.__bots[P1]))
             print("Lenght of P2s: ", len(self.__bots[P2]))
         
@@ -523,7 +524,7 @@ class Generation():
     def __runMatches(self):
         th1P1 = threading.Thread(target=self.__runMatchesTh,args=(0,19,P1,))
         th2P1 = threading.Thread(target=self.__runMatchesTh,args=(20,39,P1))
-        th1P2 = threading.Thread(target=self.__runMatchesTh,args=(0,19,P1,))
+        th1P2 = threading.Thread(target=self.__runMatchesTh,args=(0,19,P2,))
         th2P2 = threading.Thread(target=self.__runMatchesTh,args=(20,39,P2))
         
         th1P1.start()
