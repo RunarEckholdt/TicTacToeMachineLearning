@@ -171,8 +171,7 @@ inputDataP2 = []
 outputDataP2 = []
 
 
-if loadModel:
-    model = keras.models.load_model("modelP1.hdf5",compile=False)
+
 
 
 
@@ -486,12 +485,15 @@ def writeDataToFile():
 def main():
     global model
     model = createModel()
-    
+    if loadModel:
+        model = keras.models.load_model("modelP1.hdf5",compile=False)
+        
     if csvFileExists:
         readDataAsCsv()
     
     while(True):
-        model.fit(xData,yData, epochs=epo)
+        if not loadModel:
+            model.fit(xData,yData, epochs=epo)
         game()
         ans = input("play again? (y/n)")
         if ans == "n":

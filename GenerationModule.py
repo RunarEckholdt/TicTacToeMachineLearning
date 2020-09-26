@@ -57,6 +57,7 @@ class Generation():
         print("Running generation", self.__genNr)
         start = time.time()
         for i in range(self.__matchesPerGeneration):
+            print("Starting match %i" %i)
             self.__createMatches(i)
             self.__runMatches()
             self.__fetchBots()

@@ -31,7 +31,7 @@ P2 = 1
 class GenEvolution():
     def __init__(self,maxGenerations = 40):
         self.__maxGenerations = maxGenerations
-    def runGens(self):
+    def runGens(self,isTest=False):
         generation = genm.Generation(1)
         oldBots = generation.runGeneration()
         del generation
@@ -42,17 +42,21 @@ class GenEvolution():
         print("Genetic Evolution complete...")
         modelP1 = oldBots[P1][0].getModel()
         modelP2 = oldBots[P2][0].getModel()
-        modelP1.save("modelP1.hdf5")
-        print("Saving superior model for P1...")
-        print("Saving superior model for P2...")
-        modelP2.save("modelP2.hdf5")
+        
+        if not isTest:
+            print("Saving superior model for P1...")
+            modelP1.save("modelP1.hdf5")
+            print("Saving superior model for P2...")
+            modelP2.save("modelP2.hdf5")
+        
+        
         
     
              
 
 
-evol = GenEvolution()
-evol.runGens()
+evol = GenEvolution(maxGenerations=1)
+evol.runGens(isTest=True)
 
 
 

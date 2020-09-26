@@ -59,15 +59,14 @@ class Game():
             mustChoosePiece = False
         
         if mustChoosePiece:
-            inputData1 = self.__getInputData(False,bot.getShape())
+            inputData1 = self.__getInputData(pieceChosen=False,shape=bot.getShape())
             prediction = bot.predictChoice(inputData1)
-            predictionSorted = np.sort(copy2DList(prediction)) #kopierer prediction og sorterer listen
-            bot, y1, x1 = self.__getValidPrediction(bot, prediction, predictionSorted, False)
-        inputData2 = self.__getInputData(True,bot.getShape())
+            predictionSorted = np.sort(copy2DList(prediction)) #copy the prediction and sort it
+            bot, y1, x1 = self.__getValidPrediction(bot, prediction, predictionSorted, pieceChosen=False)
+        inputData2 = self.__getInputData(pieceChosen=True,shape=bot.getShape())
         prediction = bot.predictChoice(inputData2)
         predictionSorted = np.sort(copy2DList(prediction))
-        bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted, True)
-        #try:
+        bot,y2,x2 = self.__getValidPrediction(bot, prediction, predictionSorted,pieceChosen=True)
         if mustChoosePiece:
             self.__getBoard().movePiece(y1,x1,y2,x2)
             if self.__checkIfBOrR(y1, x1, bot.getShape(),release=True):
@@ -77,10 +76,6 @@ class Game():
             self.__getBoard().placePiece(y2,x2,bot.getShape())
             if self.__checkIfBOrR(y2, x2, bot.getShape(),release=False):
                 bot.addFitness(self.__blockReward)
-        # except:
-        #     print("Bot has failed to move, game is terminated")
-        #     bot.remFitness(100)
-        #     self.__terminateGame()
         return bot
             
     def __getValidPrediction(self,bot,prediction,predictionSorted,pieceChosen):
@@ -98,10 +93,10 @@ class Game():
             #if piece is chosen and position is empty
             elif board.pieceAtPos(y,x) == 0 and pieceChosen == True:
                 break
-            #den faila en predict
+            #failed on a predict
             else:
                 n -= 1
-                bot.remFitness(20)
+                bot.remFitness(40)
         if y == None:
             print("Y was not set")
         return bot, y, x
@@ -168,7 +163,7 @@ class Game():
             for i in range(3):
                 digGrav[i] = board[i][i]
             digGrav = digGrav[digGrav != shape]
-        if inDigSky: #lager en array på diagonalen
+        if inDigSky:
             for i,(y,x) in enumerate(((2,0),(1,1),(0,2))):
                 digSky[i] = board[y][x]
             digSky = digSky[digSky != shape]
@@ -225,12 +220,12 @@ class Game():
     def __checkForWin(self,shape):
         board = self.__getBoard().getBoard()
         for y in range(2):
-            if board[y] == [shape,shape,shape]: #vannrett skjekk
+            if board[y] == [shape,shape,shape]: #horizontal check
                 return True
-        for x in range(2):#loddrett skjekk
+        for x in range(2):#vertical check
             if board[0][x] == board[1][x] and board[2][x] == board[0][x] and board[0][x] == shape:
                 return True
-        if board[1][1] == shape: #skrå skjekk
+        if board[1][1] == shape: #diagonal check
             if board[0][0] == shape and board[2][2] == shape:
                 return True
             if board[0][2] == shape and board[2][0] == shape:
@@ -252,7 +247,7 @@ def copy2DList(listToCopy):
     return copiedList      
     
     
-#gir index for verdien gitt i listen
+#returns index for the value in the list
 def getIndex(value,_list):
     for i in range(len(_list)):
         if _list[i] == value:
