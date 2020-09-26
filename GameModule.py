@@ -12,11 +12,14 @@ P1 = 0
 P2 = 1
 
 class Game():
-    def __init__(self,b1,b2, 
+    def __init__(self,b1,b2,matchNr,matchType,
                  maxTurns = 20, 
                  blockReleasePunishment = 30, 
                  blockReward = 20,
-                 winReward = 40):
+                 winReward = 40,
+                 ):
+        self.__matchType = matchType
+        self.__matchNr = matchNr
         self.__b1 = b1
         self.__b2 = b2
         self.__board = boardm.Board()
@@ -26,14 +29,10 @@ class Game():
         self.__blockReleasePunishment = blockReleasePunishment
         self.__blockReward = blockReward
         self.__winReward = winReward
-    def __getBoard(self):
-        return self.__board
-    def getP1(self):
-        return self.__b1
-    def getP2(self):
-        return self.__b2
-    def isFinished(self):
-        return self.__finished
+    def getMatchType(self):
+        return self.__matchType
+    def getMatchNr(self):
+        return self.__matchNr
     def doTurn(self):
         self.__b1 = self.__takeTurn(self.__b1)
         if self.__checkForWin(self.__b1.getShape()):
@@ -47,9 +46,20 @@ class Game():
         if self.__turnCounter == self.__maxTurns:
             #print("Game reached turn 30 and is beeing terminated")
             self.__terminateGame()
-            
+    def getP1(self):
+        return self.__b1
+    def getP2(self):
+        return self.__b2
+    def isFinished(self):
+        return self.__finished
+    
+    
+    def __getBoard(self):
+        return self.__board
+    
     def __terminateGame(self):
         self.__finished = True
+        
     def __takeTurn(self,bot):
         
         #if bot must choose a piece

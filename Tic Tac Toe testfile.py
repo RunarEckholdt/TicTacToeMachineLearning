@@ -11,7 +11,7 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import threading
-
+import BotModule as bm
 
 
 # def createModel():
@@ -112,57 +112,57 @@ import threading
 # th2.start()
 
 
-board = [[1,2,2],
-         [2,2,0],
-         [1,0,2]]
+# board = [[1,2,2],
+#          [2,2,0],
+#          [1,0,2]]
 
-x = 0
-y = 0
-shape = 1
-board = np.array(board)
-row = board[y]
-row = row[row!=shape]
-
-
-colums = board[:,x]
-
-riv = 2
-sepColum = colums[colums!=shape]
-
-if row[0]==riv and any(i == row[0] for i in row) and len(row) == 2:
-    print("Juu")
+# x = 0
+# y = 0
+# shape = 1
+# board = np.array(board)
+# row = board[y]
+# row = row[row!=shape]
 
 
-inDigSky = False
-inDigGrav = False
+# colums = board[:,x]
+
+# riv = 2
+# sepColum = colums[colums!=shape]
+
+# if row[0]==riv and any(i == row[0] for i in row) and len(row) == 2:
+#     print("Juu")
+
+
+# inDigSky = False
+# inDigGrav = False
         
-if x == y:
-    inDigGrav = True
-if y == 0 and x == 2 or y == x or y == 3 and x == 0:
-    inDigSky = True
+# if x == y:
+#     inDigGrav = True
+# if y == 0 and x == 2 or y == x or y == 3 and x == 0:
+#     inDigSky = True
         
-digSky = np.zeros(3)
-digGrav = np.zeros(3)
+# digSky = np.zeros(3)
+# digGrav = np.zeros(3)
         
         
         
-if inDigGrav:
-    for i in range(3):
-        digGrav[i] = board[i][i]
-    digGrav = digGrav[digGrav != shape]
-if inDigSky: #lager en array på diagonalen
-    for i,(y,x) in enumerate(((2,0),(1,1),(0,2))):
-        digSky[i] = board[y][x]
-    digSky = digSky[digSky != shape]
+# if inDigGrav:
+#     for i in range(3):
+#         digGrav[i] = board[i][i]
+#     digGrav = digGrav[digGrav != shape]
+# if inDigSky: #lager en array på diagonalen
+#     for i,(y,x) in enumerate(((2,0),(1,1),(0,2))):
+#         digSky[i] = board[y][x]
+#     digSky = digSky[digSky != shape]
     
-if inDigSky:
-    if digSky[0]==riv and any(i == digSky[0] for i in digSky) and len(digSky) == 2: 
-        print("Sky")
+# if inDigSky:
+#     if digSky[0]==riv and any(i == digSky[0] for i in digSky) and len(digSky) == 2: 
+#         print("Sky")
 
 
-if inDigGrav:
-    if digGrav[0]==riv and any(i == digGrav[0] for i in digGrav) and len(digGrav) == 2:
-        print("Grav")
+# if inDigGrav:
+#     if digGrav[0]==riv and any(i == digGrav[0] for i in digGrav) and len(digGrav) == 2:
+#         print("Grav")
 
 
 

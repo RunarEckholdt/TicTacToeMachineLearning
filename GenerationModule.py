@@ -12,6 +12,7 @@ import pandas as pd
 from tensorflow import keras
 import BotModule as bm
 import random
+import queue
 
 P1 = 0
 P2 = 1
@@ -26,9 +27,10 @@ class Generation():
                  epo = 40,
                  keptBots = 10,
                  mutatedBots = 20,
-                 breededBots = 10):
+                 breededBots = 10,
+                 amountOfMatchThreads = 4):
         
-        
+        self.__matchThreads = amountOfMatchThreads
         self.__oldBots = oldBots
         self.__genNr = genNr
         self.__bots = [[],[]]
@@ -41,6 +43,7 @@ class Generation():
         self.__keptBots = keptBots
         self.__mutatedBots = mutatedBots
         self.__breededBots = breededBots
+        self.__matchQueue = queue.Queue(maxsize=80)
         
         
         if self.__genNr == 1 and self.__loadModel:
@@ -56,11 +59,9 @@ class Generation():
         print("---------------------------------")
         print("Running generation", self.__genNr)
         start = time.time()
-        for i in range(self.__matchesPerGeneration):
-            print("Starting match %i" %i)
-            self.__createMatches(i)
-            self.__runMatches()
-            self.__fetchBots()
+        self.__createFirstMatches()
+        self.__bots = [[],[]]
+        self.__startThreads()
         end = time.time()
         diff = end-start
         print("Matches took %.3f s"%diff)
@@ -181,7 +182,7 @@ class Generation():
         
     
     
-    def __createMatches(self,matchNr):
+    def __createFirstMatches(self,matchNr = 0):
         P1s = self.__bots[P1]
         P2s = self.__bots[P2]
         matches = [[],[]]
@@ -210,14 +211,39 @@ class Generation():
         th1P2.join()
         th2P2.join()
     
-    def __runMatchesTh(self,start,stop,p):
-        done = False
-        while not done:
-            done = True
-            for i in range(start,stop+1):
-                if not self.__matches[p][i].isFinished():
-                    self.__matches[p][i].doTurn()
-                    done = False
+    # def __runMatchesTh(self,start,stop,p):
+    #     done = False
+    #     while not done:
+    #         done = True
+    #         for i in range(start,stop+1):
+    #             if not self.__matches[p][i].isFinished():
+    #                 self.__matches[p][i].doTurn()
+    #                 done = False
+    def __startThreads(self):
+        threads = []
+        for i in range(self.__matchThreads):
+            threads.append(threading.Thread(target=self.__runMatchesTh))
+            threads[i].start()
+        for i in range(self.__matchThreads):
+            threads[i].join()
+        
+        
+    
+    def __runMatchesTh(self):
+        while(not self.__matchQueue.empty()):
+            match = self.__matchQueue.get()
+            if not match.isFinished():
+                match.doTurn()
+            if not match.isFinished():
+                self.__matchQueue.put(match)
+            elif match.getMatchNr() < 2:
+                match = self.__createNewMatch(match.getMatchType())
+            else:
+                
+            
+    
+    
+    
     
     def __fetchBots(self):
         bots = [[],[]]
